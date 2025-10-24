@@ -1,0 +1,6 @@
+control_rate_hz: 10.00038408540811
+focus_metric: sobel
+roi_height: 100
+roi_width: 100
+roi_x: 0.5
+roi_y: 0.5

@@ -1,0 +1,26 @@
+rosbag2_bagfile_information:
+  version: 5
+  storage_identifier: sqlite3
+  duration:
+    nanoseconds: 37200392713
+  starting_time:
+    nanoseconds_since_epoch: 1761331134250947037
+  message_count: 373
+  topics_with_message_count:
+    - topic_metadata:
+        name: autofocus_data
+        type: viewpoint_generation_interfaces/msg/AutofocusData
+        serialization_format: cdr
+        offered_qos_profiles: ""
+      message_count: 373
+  compression_format: ""
+  compression_mode: ""
+  relative_file_paths:
+    - _ehc_fswm_6_1761331134.bag_0.db3
+  files:
+    - path: _ehc_fswm_6_1761331134.bag_0.db3
+      starting_time:
+        nanoseconds_since_epoch: 1761331134250947037
+      duration:
+        nanoseconds: 37200392713
+      message_count: 373
