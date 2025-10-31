@@ -369,6 +369,35 @@ def plot_1_obj(data, dataset_name):
     plt.savefig("fv_unsmoothed.png")
     plt.show()
 
+def compute_shifted_x(metric_data, target_x=None):
+    x = metric_data.get("x", [])
+    fv = metric_data.get("dema_fv", [])
+    if target_x is None or not fv or not x:
+        return x
+    try:
+        arr = np.array(fv, dtype=float)
+        idx = int(np.nanargmax(arr))
+    except Exception:
+        return x
+    if idx < 0 or idx >= len(x):
+        return x
+    peak_x = x[idx]
+    try:
+        shift = target_x - peak_x
+    except Exception:
+        return x
+    return [(xx + shift) for xx in x]
+
+def find_mode_switch_x(metric_data, x_vals):
+    # Return the x coordinate for the first coarse->fine switch
+    modes = metric_data.get("mode", [])
+    for j in range(1, min(len(modes), len(x_vals))):
+        prev = (modes[j-1] or '').lower()
+        cur = (modes[j] or '').lower()
+        if 'coarse' in prev and 'fine' in cur:
+            return x_vals[j]
+    return None
+
 def plot_1_metric(all_data, metric_token, title=None):
     if not all_data:
         print("No data available to plot.")
@@ -393,22 +422,9 @@ def plot_1_metric(all_data, metric_token, title=None):
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
     fv_mode_candidates = []
     for i, (mat_label, metric_data) in enumerate(selected.items()):
-        x = metric_data.get("x", [])
         fv = metric_data.get("dema_fv", [])
-        # shift each run so the raw max(fv) sits at target_x (non-destructive)
         target_x = 0.025
-        shifted_x = x
-        if fv:
-            try:
-                arr = np.array(fv, dtype=float)
-                idx = int(np.nanargmax(arr))
-                if 0 <= idx < len(x):
-                    peak_x = x[idx]
-                    if peak_x is not None and not (isinstance(peak_x, float) and math.isnan(peak_x)):
-                        shift = target_x - peak_x
-                        shifted_x = [ (xx + shift) if (xx is not None and not (isinstance(xx, float) and math.isnan(xx))) else float('nan') for xx in x ]
-            except Exception:
-                shifted_x = x
+        shifted_x = compute_shifted_x(metric_data, target_x=target_x)
 
         ax.plot(
             shifted_x,
@@ -419,26 +435,10 @@ def plot_1_metric(all_data, metric_token, title=None):
             linewidth=1,
         )
 
-        # detect first coarse->fine mode switch and mark it
-        modes = metric_data.get("mode", [])
-        mark_idx = None
-        try:
-            for j in range(1, min(len(modes), len(x))):
-                prev = (modes[j-1] or '').lower()
-                cur = (modes[j] or '').lower()
-                if 'coarse' in prev and 'fine' in cur:
-                    mark_idx = j
-                    break
-        except Exception:
-            mark_idx = None
-
-        if mark_idx is not None and 0 <= mark_idx < len(shifted_x):
-            try:
-                x_mark = shifted_x[mark_idx]
-                if x_mark is not None and not (isinstance(x_mark, float) and math.isnan(x_mark)):
-                    fv_mode_candidates.append(x_mark)
-            except Exception:
-                pass
+        # detect coarse->fine switch using helper
+        m = find_mode_switch_x(metric_data, shifted_x)
+        if m is not None:
+            fv_mode_candidates.append(m)
 
     # draw only the smallest-magnitude FV mode marker (if any) and append legend last
     if fv_mode_candidates:
@@ -477,23 +477,9 @@ def plot_1_metric(all_data, metric_token, title=None):
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
     ratio_mode_candidates = []
     for i, (mat_label, metric_data) in enumerate(selected.items()):
-        x = metric_data.get("x", [])
         ratio = metric_data.get("ratio", [])
-        fv = metric_data.get("dema_fv", [])
-        # apply same per-run raw-max shift used for FV plot
         target_x = 0.025
-        shifted_x = x
-        if fv:
-            try:
-                arr = np.array(fv, dtype=float)
-                idx = int(np.nanargmax(arr))
-                if 0 <= idx < len(x):
-                    peak_x = x[idx]
-                    if peak_x is not None and not (isinstance(peak_x, float) and math.isnan(peak_x)):
-                        shift = target_x - peak_x
-                        shifted_x = [ (xx + shift) if (xx is not None and not (isinstance(xx, float) and math.isnan(xx))) else float('nan') for xx in x ]
-            except Exception:
-                shifted_x = x
+        shifted_x = compute_shifted_x(metric_data, target_x=target_x)
 
         ax.plot(
             shifted_x,
@@ -504,26 +490,9 @@ def plot_1_metric(all_data, metric_token, title=None):
             linewidth=1,
         )
 
-        # mark coarse->fine switch on ratio plot as well
-        modes = metric_data.get("mode", [])
-        mark_idx = None
-        try:
-            for j in range(1, min(len(modes), len(x))):
-                prev = (modes[j-1] or '').lower()
-                cur = (modes[j] or '').lower()
-                if 'coarse' in prev and 'fine' in cur:
-                    mark_idx = j
-                    break
-        except Exception:
-            mark_idx = None
-
-        if mark_idx is not None and 0 <= mark_idx < len(shifted_x):
-            try:
-                x_mark = shifted_x[mark_idx]
-                if x_mark is not None and not (isinstance(x_mark, float) and math.isnan(x_mark)):
-                    ratio_mode_candidates.append(x_mark)
-            except Exception:
-                pass
+        m = find_mode_switch_x(metric_data, shifted_x)
+        if m is not None:
+            ratio_mode_candidates.append(m)
 
     # draw only the smallest-magnitude Ratio mode marker and append legend last
     if ratio_mode_candidates:
@@ -561,23 +530,9 @@ def plot_1_metric(all_data, metric_token, title=None):
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
     vel_mode_candidates = []
     for i, (mat_label, metric_data) in enumerate(selected.items()):
-        x = metric_data.get("x", [])
         vel = metric_data.get("velocity", [])
-        fv = metric_data.get("dema_fv", [])
-        # apply same per-run raw-max shift used for FV plot
         target_x = 0.025
-        shifted_x = x
-        if fv:
-            try:
-                arr = np.array(fv, dtype=float)
-                idx = int(np.nanargmax(arr))
-                if 0 <= idx < len(x):
-                    peak_x = x[idx]
-                    if peak_x is not None and not (isinstance(peak_x, float) and math.isnan(peak_x)):
-                        shift = target_x - peak_x
-                        shifted_x = [ (xx + shift) if (xx is not None and not (isinstance(xx, float) and math.isnan(xx))) else float('nan') for xx in x ]
-            except Exception:
-                shifted_x = x
+        shifted_x = compute_shifted_x(metric_data, target_x=target_x)
 
         ax.plot(
             shifted_x,
@@ -588,26 +543,9 @@ def plot_1_metric(all_data, metric_token, title=None):
             linewidth=1,
         )
 
-        # mark coarse->fine switch on velocity plot as well
-        modes = metric_data.get("mode", [])
-        mark_idx = None
-        try:
-            for j in range(1, min(len(modes), len(x))):
-                prev = (modes[j-1] or '').lower()
-                cur = (modes[j] or '').lower()
-                if 'coarse' in prev and 'fine' in cur:
-                    mark_idx = j
-                    break
-        except Exception:
-            mark_idx = None
-
-        if mark_idx is not None and 0 <= mark_idx < len(shifted_x):
-            try:
-                x_mark = shifted_x[mark_idx]
-                if x_mark is not None and not (isinstance(x_mark, float) and math.isnan(x_mark)):
-                    vel_mode_candidates.append(x_mark)
-            except Exception:
-                pass
+        m = find_mode_switch_x(metric_data, shifted_x)
+        if m is not None:
+            vel_mode_candidates.append(m)
 
     if vel_mode_candidates:
         chosen = min(vel_mode_candidates, key=lambda v: abs(v))
@@ -714,8 +652,8 @@ def main():
             print(f"No .csv file found in {d}")
 
     # plot once for all metrics
-    # plot_3_metrics(steel_data)
-    # plot_dfv_ddfv(steel_data["sobel"])
+    plot_3_metrics(steel_data)
+    plot_dfv_ddfv(steel_data["sobel"])
 
     # Time and position processing for all EHC and Adaptive runs
     ehc_dirs = find_alg_dirs(ROOT,'ehc')
