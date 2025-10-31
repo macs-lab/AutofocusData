@@ -5,8 +5,8 @@ import re
 from matplotlib.ticker import MaxNLocator
 import numpy as np
 from scipy.interpolate import UnivariateSpline
-from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import math
 
 # Plotting 3 focus metrics together, first as focus value, then as ratio
@@ -284,10 +284,10 @@ def plot_dfv_ddfv(data):
         mode_marker_added = False
         for a in ax:
             if not mode_marker_added:
-                a.axvline(x_mark, color=COLOR[3], linestyle='--', linewidth=0.5, label="Fine mode starts")
+                a.axvline(x_mark, color=COLOR[0], linestyle='--', linewidth=1, label="Fine mode starts")
                 mode_marker_added = True
             else:
-                a.axvline(x_mark, color=COLOR[3], linestyle='--', linewidth=0.5)
+                a.axvline(x_mark, color=COLOR[0], linestyle='--', linewidth=1)
     ax[0].legend(fontsize=6)
     plt.tight_layout()
     plt.savefig("FV_dFV_ddFV.png")
@@ -342,7 +342,7 @@ def plot_1_obj(data, dataset_name):
     if mode_candidates:
         # choose the candidate closest to zero (smallest absolute value)
         chosen = min(mode_candidates, key=lambda v: abs(v))
-        ax.axvline(chosen, color=COLOR[3], linestyle='-.', linewidth=0.5)
+        ax.axvline(chosen, color=COLOR[0], linestyle='-.', linewidth=1)
 
     handles, labels = ax.get_legend_handles_labels()
     seen = set()
@@ -420,7 +420,7 @@ def plot_1_metric(all_data, metric_token, title=None):
     
     # FV vs X
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
-    fv_mode_candidates = []
+    
     for i, (mat_label, metric_data) in enumerate(selected.items()):
         fv = metric_data.get("dema_fv", [])
         target_x = 0.025
@@ -435,17 +435,9 @@ def plot_1_metric(all_data, metric_token, title=None):
             linewidth=1,
         )
 
-        # detect coarse->fine switch using helper
-        m = find_mode_switch_x(metric_data, shifted_x)
-        if m is not None:
-            fv_mode_candidates.append(m)
+        
 
-    # draw only the smallest-magnitude FV mode marker (if any) and append legend last
-    if fv_mode_candidates:
-        chosen = min(fv_mode_candidates, key=lambda v: abs(v))
-        ax.axvline(chosen, color=COLOR[3], linestyle='-.', linewidth=0.5)
-
-    # dedupe legend just in case, and append the mode marker as the last legend entry
+    # dedupe legend just in case
     handles, labels = ax.get_legend_handles_labels()
     seen = set()
     uniq_h, uniq_l = [], []
@@ -455,9 +447,6 @@ def plot_1_metric(all_data, metric_token, title=None):
         seen.add(l)
         uniq_h.append(h)
         uniq_l.append(l)
-    if fv_mode_candidates:
-        uniq_h.append(Line2D([0], [0], color=COLOR[3], linestyle='-.', linewidth=0.5))
-        uniq_l.append("Fine mode starts")
     if uniq_h:
         ax.legend(uniq_h, uniq_l, fontsize=6)
 
@@ -475,7 +464,6 @@ def plot_1_metric(all_data, metric_token, title=None):
 
     # Ratio vs X
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
-    ratio_mode_candidates = []
     for i, (mat_label, metric_data) in enumerate(selected.items()):
         ratio = metric_data.get("ratio", [])
         target_x = 0.025
@@ -490,14 +478,7 @@ def plot_1_metric(all_data, metric_token, title=None):
             linewidth=1,
         )
 
-        m = find_mode_switch_x(metric_data, shifted_x)
-        if m is not None:
-            ratio_mode_candidates.append(m)
-
-    # draw only the smallest-magnitude Ratio mode marker and append legend last
-    if ratio_mode_candidates:
-        chosen = min(ratio_mode_candidates, key=lambda v: abs(v))
-        ax.axvline(chosen, color=COLOR[3], linestyle='-.', linewidth=0.5)
+        
 
     handles, labels = ax.get_legend_handles_labels()
     seen = set()
@@ -508,9 +489,6 @@ def plot_1_metric(all_data, metric_token, title=None):
         seen.add(l)
         uniq_h.append(h)
         uniq_l.append(l)
-    if ratio_mode_candidates:
-        uniq_h.append(Line2D([0], [0], color=COLOR[3], linestyle='-.', linewidth=0.5))
-        uniq_l.append("Fine mode starts")
     if uniq_h:
         ax.legend(uniq_h, uniq_l, fontsize=6)
 
@@ -527,56 +505,46 @@ def plot_1_metric(all_data, metric_token, title=None):
     plt.show()
 
     # Velocity vs X
-    fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
-    vel_mode_candidates = []
-    for i, (mat_label, metric_data) in enumerate(selected.items()):
-        vel = metric_data.get("velocity", [])
-        target_x = 0.025
-        shifted_x = compute_shifted_x(metric_data, target_x=target_x)
+    # fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
+    # for i, (mat_label, metric_data) in enumerate(selected.items()):
+    #     vel = metric_data.get("velocity", [])
+    #     target_x = 0.025
+    #     shifted_x = compute_shifted_x(metric_data, target_x=target_x)
 
-        ax.plot(
-            shifted_x,
-            vel,
-            label=mat_label,
-            color=COLOR[i % len(COLOR)],
-            linestyle=LINESTYLE[i % len(LINESTYLE)],
-            linewidth=1,
-        )
+    #     ax.plot(
+    #         shifted_x,
+    #         vel,
+    #         label=mat_label,
+    #         color=COLOR[i % len(COLOR)],
+    #         linestyle=LINESTYLE[i % len(LINESTYLE)],
+    #         linewidth=1,
+    #     )
 
-        m = find_mode_switch_x(metric_data, shifted_x)
-        if m is not None:
-            vel_mode_candidates.append(m)
+        
 
-    if vel_mode_candidates:
-        chosen = min(vel_mode_candidates, key=lambda v: abs(v))
-        ax.axvline(chosen, color=COLOR[3], linestyle='-.', linewidth=0.5)
+    # handles, labels = ax.get_legend_handles_labels()
+    # seen = set()
+    # uniq_h, uniq_l = [], []
+    # for h, l in zip(handles, labels):
+    #     if l in seen:
+    #         continue
+    #     seen.add(l)
+    #     uniq_h.append(h)
+    #     uniq_l.append(l)
+    # if uniq_h:
+    #     ax.legend(uniq_h, uniq_l, fontsize=6)
 
-    handles, labels = ax.get_legend_handles_labels()
-    seen = set()
-    uniq_h, uniq_l = [], []
-    for h, l in zip(handles, labels):
-        if l in seen:
-            continue
-        seen.add(l)
-        uniq_h.append(h)
-        uniq_l.append(l)
-    if vel_mode_candidates:
-        uniq_h.append(Line2D([0], [0], color=COLOR[3], linestyle='-.', linewidth=0.5))
-        uniq_l.append("Fine mode starts")
-    if uniq_h:
-        ax.legend(uniq_h, uniq_l, fontsize=6)
-
-    ax.set_xlabel("X (m)", fontsize=9)
-    ax.set_ylabel("V", fontsize=9)
-    ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
-    ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
-    ax.tick_params(axis='x', labelsize=8)
-    ax.tick_params(axis='y', labelsize=8)
-    ax.set_title(f"Velocity vs X plot for {title or metric_token}", fontsize=9)
-    plt.tight_layout()
-    plt.xlim(0, 0.05)
-    plt.savefig(f"vel_{metric_token}.png")
-    plt.show()
+    # ax.set_xlabel("X (m)", fontsize=9)
+    # ax.set_ylabel("V", fontsize=9)
+    # ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+    # ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
+    # ax.tick_params(axis='x', labelsize=8)
+    # ax.tick_params(axis='y', labelsize=8)
+    # ax.set_title(f"Velocity vs X plot for {title or metric_token}", fontsize=9)
+    # plt.tight_layout()
+    # plt.xlim(0, 0.05)
+    # plt.savefig(f"vel_{metric_token}.png")
+    # plt.show()
  
 def read_final_time(filename):
     # Final time is the last timestamp before "return to max" focus mode
@@ -684,6 +652,14 @@ def main():
                 max_focus = max(dema_fv)
                 max_index = dema_fv.index(max_focus)
                 max_focus_x = x[max_index]
+                # compute max ratio safely (ignore None/NaN)
+                valid_ratios = [r for r in ratio if r is not None and not (isinstance(r, float) and math.isnan(r))]
+                if valid_ratios:
+                    max_ratio = max(valid_ratios)
+                else:
+                    max_ratio = float('nan')
+
+                # write both max FV location and the max values
                 write_to_csv('Max_Focus_X.csv', os.path.basename(d), max_focus_x, max_focus)
             else:
                 print(f"No valid data read from ({os.path.basename(csv_path)}).")
@@ -717,7 +693,15 @@ def main():
                 max_focus = max(dema_fv)
                 max_index = dema_fv.index(max_focus)
                 max_focus_x = x[max_index]
+                # compute max ratio safely (ignore None/NaN)
+                valid_ratios = [r for r in ratio if r is not None and not (isinstance(r, float) and math.isnan(r))]
+                if valid_ratios:
+                    max_ratio = max(valid_ratios)
+                else:
+                    max_ratio = float('nan')
+
                 write_to_csv('Max_Focus_X.csv', os.path.basename(d), max_focus_x, max_focus)
+                write_to_csv('Max_FV_Ratio.csv', os.path.basename(d), max_focus, max_ratio)
             else:
                 print(f"No valid data read from ({os.path.basename(csv_path)}).")
             if stop_flag:
