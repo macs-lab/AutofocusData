@@ -505,46 +505,46 @@ def plot_1_metric(all_data, metric_token, title=None):
     plt.show()
 
     # Velocity vs X
-    # fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
-    # for i, (mat_label, metric_data) in enumerate(selected.items()):
-    #     vel = metric_data.get("velocity", [])
-    #     target_x = 0.025
-    #     shifted_x = compute_shifted_x(metric_data, target_x=target_x)
+    fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
+    for i, (mat_label, metric_data) in enumerate(selected.items()):
+        vel = metric_data.get("velocity", [])
+        target_x = 0.025
+        shifted_x = compute_shifted_x(metric_data, target_x=target_x)
 
-    #     ax.plot(
-    #         shifted_x,
-    #         vel,
-    #         label=mat_label,
-    #         color=COLOR[i % len(COLOR)],
-    #         linestyle=LINESTYLE[i % len(LINESTYLE)],
-    #         linewidth=1,
-    #     )
+        ax.plot(
+            shifted_x,
+            vel,
+            label=mat_label,
+            color=COLOR[i % len(COLOR)],
+            linestyle=LINESTYLE[i % len(LINESTYLE)],
+            linewidth=1,
+        )
 
         
 
-    # handles, labels = ax.get_legend_handles_labels()
-    # seen = set()
-    # uniq_h, uniq_l = [], []
-    # for h, l in zip(handles, labels):
-    #     if l in seen:
-    #         continue
-    #     seen.add(l)
-    #     uniq_h.append(h)
-    #     uniq_l.append(l)
-    # if uniq_h:
-    #     ax.legend(uniq_h, uniq_l, fontsize=6)
+    handles, labels = ax.get_legend_handles_labels()
+    seen = set()
+    uniq_h, uniq_l = [], []
+    for h, l in zip(handles, labels):
+        if l in seen:
+            continue
+        seen.add(l)
+        uniq_h.append(h)
+        uniq_l.append(l)
+    if uniq_h:
+        ax.legend(uniq_h, uniq_l, fontsize=6)
 
-    # ax.set_xlabel("X (m)", fontsize=9)
-    # ax.set_ylabel("V", fontsize=9)
-    # ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
-    # ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
-    # ax.tick_params(axis='x', labelsize=8)
-    # ax.tick_params(axis='y', labelsize=8)
-    # ax.set_title(f"Velocity vs X plot for {title or metric_token}", fontsize=9)
-    # plt.tight_layout()
-    # plt.xlim(0, 0.05)
-    # plt.savefig(f"vel_{metric_token}.png")
-    # plt.show()
+    ax.set_xlabel("X (m)", fontsize=9)
+    ax.set_ylabel("V", fontsize=9)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax.tick_params(axis='x', labelsize=8)
+    ax.tick_params(axis='y', labelsize=8)
+    ax.set_title(f"Velocity vs X plot for {title or metric_token}", fontsize=9)
+    plt.tight_layout()
+    plt.xlim(0, 0.05)
+    plt.savefig(f"vel_{metric_token}.png")
+    plt.show()
  
 def read_final_time(filename):
     # Final time is the last timestamp before "return to max" focus mode
