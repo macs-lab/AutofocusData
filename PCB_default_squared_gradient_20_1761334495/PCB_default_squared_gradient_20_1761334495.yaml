@@ -1,6 +1,0 @@
-control_rate_hz: 10.00034968340503
-focus_metric: squared_gradient
-roi_height: 100
-roi_width: 100
-roi_x: 0.5
-roi_y: 0.5

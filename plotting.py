@@ -41,8 +41,8 @@ def safe_float(s):
     except Exception:
         return None
 
-def read_csv_focus_data(filename, max_fv=0.5e6):
-    dema, dfv, ddfv, ratio = [], [], [], []
+def read_csv_focus_data(filename, offset=0, max_fv=0.5e6):
+    dema, dfv, ddfv, ratio, velocity = [], [], [], [], []
     times_raw, x_raw = [], []
     stop_flag = False
 
@@ -64,7 +64,11 @@ def read_csv_focus_data(filename, max_fv=0.5e6):
             dfv_v = safe_float(row[9].strip())
             ddfv_v = safe_float(row[10].strip())
             ratio_v = safe_float(row[11].strip())
-            t_raw = safe_float(row[12].strip())
+            velocity_v = safe_float(row[19].strip())
+            # Timestamp is in the first column (TIME_COL = 0). Previously this used
+            # column 12 which is actually the X coordinate; that caused time to
+            # be mixed with position and produced negative normalized times.
+            t_raw = safe_float(row[0].strip())
 
             # Read x, y, z for Euclidean norm
             x_val = safe_float(row[12].strip())
@@ -79,11 +83,13 @@ def read_csv_focus_data(filename, max_fv=0.5e6):
             dfv.append(dfv_v if dfv_v is not None else float('nan'))
             ddfv.append(ddfv_v if ddfv_v is not None else float('nan'))
             ratio.append(ratio_v if ratio_v is not None else float('nan'))
+            velocity.append(velocity_v if velocity_v is not None else float('nan'))
             times_raw.append(t_raw if t_raw is not None else float('nan'))
             x_raw.append(x_raw_v if x_raw_v is not None else float('nan'))
 
-    # convert timestamps: if any value looks like nanoseconds (>1e6) convert to seconds
-    convert_ns = any((v is not None and not math.isnan(v) and abs(v) > 1e6) for v in times_raw)
+    # convert timestamps: detect if values are in nanoseconds and convert to seconds.
+    # Use a large threshold (1e12) to avoid mis-detecting small position values.
+    convert_ns = any((v is not None and not math.isnan(v) and abs(v) > 1e12) for v in times_raw)
     times = [ (v * 1e-9) if (not math.isnan(v) and convert_ns) else (v if not math.isnan(v) else float('nan')) for v in times_raw ]
 
     # normalize time to start at 0 using first valid timestamp
@@ -103,8 +109,7 @@ def read_csv_focus_data(filename, max_fv=0.5e6):
         else:
             x_vals = shifted
 
-    # shift x so that x = 0.043 becomes the new zero (x' = x - 0.043)
-    offset = 0.043
+    # shift x so that x = 0.number becomes the new zero (x' = x - number.043)
     x_vals = [ (xx - offset) if not (xx is None or math.isnan(xx)) else float('nan') for xx in x_vals ]
 
     # replace dema outliers (> max_fv) with fixed value
@@ -113,13 +118,27 @@ def read_csv_focus_data(filename, max_fv=0.5e6):
         if v > max_fv:
             dema[i] = replacement
 
-    return time_norm, dema, dfv, ddfv, ratio, x_vals, stop_flag
+    return time_norm, dema, dfv, ddfv, ratio, velocity, x_vals, stop_flag
 
 def clean_metric_name(dirname):
-    basename = os.path.basename(dirname)
-    metric = re.sub(r'^Steel_ehc_', '', basename)
-    metric = re.sub(r'[_0-9]+$', '', metric)
-    return metric
+    # get basename, normalize separators
+    b = os.path.basename(dirname)
+    name = re.sub(r'[_\-]+', ' ', b).strip()
+    tokens = [t for t in name.split() if t]
+    if not tokens:
+        return b
+    # tokens to ignore (common prefixes/labels)
+    ignore = {'steel', 'steel_ehc', 'ehc', 'default', 'adaptive', 'run', 'method', 'pcb', 'cf'}
+    # pick last token that is not numeric/version and not in ignore
+    for t in reversed(tokens):
+        tl = t.lower()
+        if re.match(r'^v?\d+$', tl):
+            continue
+        if tl in ignore:
+            continue
+        return tl  # return lowercase short metric name
+    # fallback: last token
+    return tokens[-1].lower()
 
 def moving_average(values, window=5):
     # Simple moving average that returns a list the same length as `values`.
@@ -177,22 +196,6 @@ def plot_3_metrics(steel_data):
     plt.xlim(0,0.05)
     plt.savefig("fv_comparison_vibrant.png")
     plt.show()
-
-    # Plot Ratio vs X for all metrics
-    # fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
-    # for metric_name, metric_data in steel_data.items():
-    #     ax.plot(metric_data["x"], metric_data["ratio"], label=metric_name, linewidth=1)
-    # ax.set_xlabel("X (m)", fontsize=10)
-    # ax.set_ylabel("Ratio", fontsize=10)
-    # ax.legend(fontsize=9)
-    # ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
-    # ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
-    # ax.tick_params(axis='x', labelsize=8)
-    # ax.tick_params(axis='y', labelsize=8)
-    # ax.set_title("Ratio Across Metrics vs Position X", fontsize=12)
-    # plt.tight_layout()
-    # plt.xlim(0,0.05)
-    # plt.show()
 
     # Plot Smoothed Ratio vs X for all metrics. Simple Moving Average works fine. Don't use EMA since SMA is better for noise and smoothing.
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)    
@@ -277,26 +280,216 @@ def plot_dfv_ddfv(data):
     plt.savefig("FV_dFV_ddFV.png")
     plt.show()
 
+def plot_1_obj(data, dataset_name):
+    if not data:
+        print("No data to plot.")
+        return
+
+    fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)    
+    for i, (metric_name, metric_data) in enumerate(data.items()):
+        label = clean_metric_name(metric_name)
+        ax.plot(
+            metric_data["x"],
+            metric_data["dema_fv"],
+            label=label,
+            color=COLOR[i],
+            linestyle=LINESTYLE[i],
+            linewidth=1
+        )
+
+    ax.set_xlabel("X (m)", fontsize=9)
+    ax.set_ylabel("Focus Value", fontsize=9)
+    handles, labels = ax.get_legend_handles_labels()
+    seen = set()
+    uniq_h, uniq_l = [], []
+    for h, l in zip(handles, labels):
+        if l in seen:
+            continue
+        seen.add(l)
+        uniq_h.append(h)
+        uniq_l.append(l)
+    if uniq_h:
+        ax.legend(uniq_h, uniq_l, fontsize=6)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax.tick_params(axis='x', labelsize=8)
+    ax.tick_params(axis='y', labelsize=8)
+    ax.set_title(f"FV vs X plot for {dataset_name}" if dataset_name else "FV vs X", fontsize=9)
+    plt.tight_layout()
+    # plt.xlim(0,0.05)
+    plt.savefig("fv_unsmoothed.png")
+    plt.show()
+
+def plot_1_metric(all_data, metric_token, title=None):
+    if not all_data:
+        print("No data available to plot.")
+        return
+
+    token = metric_token.lower()
+    # enforce legend order: CF, Steel, PCB
+    materials = [("CF", "cf"), ("Steel", "steel"), ("PCB", "pcb")]
+    selected = {}
+    for label, mat_tok in materials:
+        for k, v in all_data.items():
+            kn = k.lower()
+            if mat_tok in kn and token in kn:
+                selected[label] = v
+                break
+
+    if not selected:
+        print(f"No runs found for metric '{metric_token}'.")
+        return
+    
+    # FV vs X
+    fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
+    for i, (mat_label, metric_data) in enumerate(selected.items()):
+        x = metric_data.get("x", [])
+        ratio = metric_data.get("dema_fv", [])
+        ax.plot(
+            x,
+            ratio,
+            label=mat_label,
+            color=COLOR[i % len(COLOR)],
+            linestyle=LINESTYLE[i % len(LINESTYLE)],
+            linewidth=1,
+        )
+
+    # dedupe legend just in case
+    handles, labels = ax.get_legend_handles_labels()
+    seen = set()
+    uniq_h, uniq_l = [], []
+    for h, l in zip(handles, labels):
+        if l in seen:
+            continue
+        seen.add(l)
+        uniq_h.append(h)
+        uniq_l.append(l)
+    if uniq_h:
+        ax.legend(uniq_h, uniq_l, fontsize=6)
+
+    ax.set_xlabel("X (m)", fontsize=9)
+    ax.set_ylabel("FV", fontsize=9)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax.tick_params(axis='x', labelsize=8)
+    ax.tick_params(axis='y', labelsize=8)
+    ax.set_title(f"FV vs X plot for {title or metric_token}", fontsize=9)
+    plt.tight_layout()
+    # plt.xlim(0, 0.05)
+    plt.savefig(f"fv_{metric_token}.png")
+    plt.show()
+
+    # Ratio vs X
+    fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
+    for i, (mat_label, metric_data) in enumerate(selected.items()):
+        x = metric_data.get("x", [])
+        ratio = metric_data.get("ratio", [])
+        ax.plot(
+            x,
+            ratio,
+            label=mat_label,
+            color=COLOR[i % len(COLOR)],
+            linestyle=LINESTYLE[i % len(LINESTYLE)],
+            linewidth=1,
+        )
+
+    # dedupe legend just in case
+    handles, labels = ax.get_legend_handles_labels()
+    seen = set()
+    uniq_h, uniq_l = [], []
+    for h, l in zip(handles, labels):
+        if l in seen:
+            continue
+        seen.add(l)
+        uniq_h.append(h)
+        uniq_l.append(l)
+    if uniq_h:
+        ax.legend(uniq_h, uniq_l, fontsize=6)
+
+    ax.set_xlabel("X (m)", fontsize=9)
+    ax.set_ylabel("Ratio", fontsize=9)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax.tick_params(axis='x', labelsize=8)
+    ax.tick_params(axis='y', labelsize=8)
+    ax.set_title(f"Ratio vs X plot for {title or metric_token}", fontsize=9)
+    plt.tight_layout()
+    # plt.xlim(0, 0.05)
+    plt.savefig(f"ratio_{metric_token}.png")
+    plt.show()
+
+    # Velocity vs X
+    fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
+    for i, (mat_label, metric_data) in enumerate(selected.items()):
+        x = metric_data.get("x", [])
+        vel = metric_data.get("velocity", [])
+        ax.plot(
+            x,
+            vel,
+            label=mat_label,
+            color=COLOR[i % len(COLOR)],
+            linestyle=LINESTYLE[i % len(LINESTYLE)],
+            linewidth=1,
+        )
+
+    handles, labels = ax.get_legend_handles_labels()
+    seen = set()
+    uniq_h, uniq_l = [], []
+    for h, l in zip(handles, labels):
+        if l in seen:
+            continue
+        seen.add(l)
+        uniq_h.append(h)
+        uniq_l.append(l)
+    if uniq_h:
+        ax.legend(uniq_h, uniq_l, fontsize=6)
+
+    ax.set_xlabel("X (m)", fontsize=9)
+    ax.set_ylabel("V", fontsize=9)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax.tick_params(axis='x', labelsize=8)
+    ax.tick_params(axis='y', labelsize=8)
+    ax.set_title(f"Velocity vs X plot for {title or metric_token}", fontsize=9)
+    plt.tight_layout()
+    # plt.xlim(0, 0.05)
+    plt.savefig(f"vel_{metric_token}.png")
+    plt.show()
+ 
+
 def read_final_time(filename):
     # Final time is the last timestamp before "return to max" focus mode
+    TIME_COL = 0
     baseline = None
-    final_ns = None
+    final_t = None
+    raw_vals = []
 
     with open(filename, newline='', encoding='utf-8') as f:
         reader = csv.reader(f)
-        next(reader, None)  # Skip header row
-
         for row in reader:
-            focus_mode = row[-2].lower()
-            if "return to max" in focus_mode:
+            # skip empty/header rows
+            if not row:
+                continue
+            t_raw = safe_float(row[TIME_COL].strip())
+            raw_vals.append(t_raw)
+            if 'return to max' in row[20].lower():
                 break
 
-            raw_time_str = row[0].strip()
-            raw_time_ns = float(raw_time_str)
-            if baseline is None:
-                baseline = raw_time_ns
-            final_ns = raw_time_ns
-    return (final_ns - baseline) * 1e-9  # normalize and convert to seconds
+    if not raw_vals:
+        return 0.0
+
+    # detect ns vs s
+    convert_ns = any(v is not None and not math.isnan(v) and abs(v) > 1e12 for v in raw_vals)
+    # find first and last valid
+    valid = [v for v in raw_vals if v is not None and not math.isnan(v)]
+    if not valid:
+        return 0.0
+    first = valid[0]
+    last = valid[-1]
+    if convert_ns:
+        return (last - first) * 1e-9
+    else:
+        return (last - first)
 
 def write_to_csv(output_filename, filename, value1, value2=None):
     with open(output_filename, mode='a', newline='', encoding='utf-8') as f:
@@ -315,7 +508,7 @@ def main():
     for d in steel_dir:
         csv_path = first_csv_in_dir(d)
         if csv_path:
-            time, dema_fv, dfv, ddfv, ratio, x, stop_flag = read_csv_focus_data(csv_path)
+            time, dema_fv, dfv, ddfv, ratio, velocity, x, stop_flag = read_csv_focus_data(csv_path, offset=0.043)
             metric_name = clean_metric_name(d)
             # only add if we actually read some data
             if dema_fv:
@@ -325,6 +518,7 @@ def main():
                     "dfv": dfv,
                     "ddfv": ddfv,
                     "ratio": ratio,
+                    "velocity": velocity,
                     "x": x
                 }
             else:
@@ -336,8 +530,8 @@ def main():
             print(f"No .csv file found in {d}")
 
     # plot once for all metrics
-    plot_3_metrics(steel_data)
-    plot_dfv_ddfv(steel_data["sobel"])
+    # plot_3_metrics(steel_data)
+    # plot_dfv_ddfv(steel_data["sobel"])
 
     # Time and position processing for all EHC and Adaptive runs
     ehc_dirs = find_alg_dirs(ROOT,'ehc')
@@ -353,7 +547,7 @@ def main():
             write_to_csv('Time_Taken.csv', os.path.basename(d), time_taken)
 
             # Max X focus computatoin
-            time, dema_fv, dfv, ddfv, ratio, x, stop_flag = read_csv_focus_data(csv_path)
+            time, dema_fv, dfv, ddfv, ratio, velocity, x, stop_flag = read_csv_focus_data(csv_path, offset=0.043)
             if dema_fv:
                 all_data[os.path.basename(d)] = {
                     "time": time,
@@ -361,6 +555,7 @@ def main():
                     "dfv": dfv,
                     "ddfv": ddfv,
                     "ratio": ratio,
+                    "velocity": velocity,
                     "x": x
                 }
                 max_focus = max(dema_fv)
@@ -373,7 +568,7 @@ def main():
                 continue
         else:
             print(f"No .csv file found in {d}")
-
+    
     # Adaptive runs
     all_data = {}
     for d in adaptive_dirs:
@@ -384,7 +579,7 @@ def main():
             write_to_csv('Time_Taken.csv', os.path.basename(d), time_taken)
 
             # Max X focus computatoin
-            time, dema_fv, dfv, ddfv, ratio, x, stop_flag = read_csv_focus_data(csv_path)
+            time, dema_fv, dfv, ddfv, ratio, velocity, x, stop_flag = read_csv_focus_data(csv_path, offset=0)
             if dema_fv:
                 all_data[os.path.basename(d)] = {
                     "time": time,
@@ -392,6 +587,7 @@ def main():
                     "dfv": dfv,
                     "ddfv": ddfv,
                     "ratio": ratio,
+                    "velocity": velocity,
                     "x": x
                 }
                 max_focus = max(dema_fv)
@@ -404,6 +600,11 @@ def main():
                 continue
         else:
             print(f"No .csv file found in {d}")
+    
+    # steel_data_adaptive = {k: v for k, v in all_data.items() if 'Steel' in k}
+    # plot_1_obj(steel_data_adaptive, "Steel Using Adaptive")
+    plot_1_metric(all_data, "fswm", title="FSWM")
+
 
 if __name__ == "__main__":
     main()
