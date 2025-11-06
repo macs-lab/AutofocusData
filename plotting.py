@@ -298,75 +298,41 @@ def plot_1_obj(data, dataset_name):
         print("No data to plot.")
         return
 
+    # Plot Focus Value and smoothed Velocity for each metric, shifted so FV peak maps to 0.025
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
-    mode_candidates = []
     for i, (metric_name, metric_data) in enumerate(data.items()):
         label = clean_metric_name(metric_name)
-        x = metric_data.get("x", [])
-        fv = metric_data.get("dema_fv", [])
+        # fv = metric_data.get("dema_fv", [])
+        # shift so peak FV is at 0.025 (match plot_1_metric)
+        shifted_x = compute_shifted_x(metric_data, target_x=0.025)
 
-        # compute first switch from 'coarse' -> 'fine' using the 2nd-to-last column values
-        modes = metric_data.get("mode", [])
-        mark_idx = None
-        try:
-            for j in range(1, min(len(modes), len(x))):
-                prev = (modes[j-1] or '').lower()
-                cur = (modes[j] or '').lower()
-                if 'coarse' in prev and 'fine' in cur:
-                    mark_idx = j
-                    break
-        except Exception:
-            mark_idx = None
-
+        # smoothed velocity
+        vel = metric_data.get("velocity", [])
+        smoothed_vel = moving_average(vel, window=17)
         ax.plot(
-            x,
-            fv,
+            shifted_x,
+            smoothed_vel,
             label=label,
-            color=COLOR[i],
-            linestyle=LINESTYLE[i],
-            linewidth=1
+            color=COLOR[i % len(COLOR)],
+            linestyle=LINESTYLE[i % len(LINESTYLE)],
+            linewidth=1,
         )
+   
 
-        # collect candidate mark positions (do not draw here)
-        if mark_idx is not None and 0 <= mark_idx < len(x):
-            try:
-                x_mark = x[mark_idx]
-                if x_mark is not None and not (isinstance(x_mark, float) and math.isnan(x_mark)):
-                    mode_candidates.append(x_mark)
-            except Exception:
-                pass
-
+    # ax[0].set_ylabel("Focus Value", fontsize=9)
+    ax.set_ylabel("Smoothed Velocity", fontsize=9)
     ax.set_xlabel("X (m)", fontsize=9)
-    ax.set_ylabel("Focus Value", fontsize=9)
-    # After plotting metrics, draw a single vertical marker at the smallest-magnitude candidate (if any)
-    if mode_candidates:
-        # choose the candidate closest to zero (smallest absolute value)
-        chosen = min(mode_candidates, key=lambda v: abs(v))
-        ax.axvline(chosen, color=COLOR[0], linestyle='-.', linewidth=1)
+    ax.legend(fontsize=6)
 
-    handles, labels = ax.get_legend_handles_labels()
-    seen = set()
-    uniq_h, uniq_l = [], []
-    for h, l in zip(handles, labels):
-        if l in seen:
-            continue
-        seen.add(l)
-        uniq_h.append(h)
-        uniq_l.append(l)
-    # append the mode marker to the end of the legend (if present)
-    if mode_candidates:
-        uniq_h.append(Line2D([0], [0], color=COLOR[3], linestyle='-.', linewidth=0.5))
-        uniq_l.append("Fine mode starts")
-    if uniq_h:
-        ax.legend(uniq_h, uniq_l, fontsize=6)
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
     ax.tick_params(axis='y', labelsize=8)
-    ax.set_title(f"FV vs X plot for {dataset_name}" if dataset_name else "FV vs X", fontsize=9)
+    # ax.set_title("Velocity vs Position X for {dataset_name}" if dataset_name else "smth", fontsize=9)
+    ax.set_title("Velocity vs Position X", fontsize=9)
     plt.tight_layout()
-    # plt.xlim(0,0.05)
-    plt.savefig("fv_unsmoothed.png")
+    plt.xlim(0, 0.05)
+    plt.savefig("smoothed_vel.png")
     plt.show()
 
 def compute_shifted_x(metric_data, target_x=None):
@@ -709,8 +675,8 @@ def main():
         else:
             print(f"No .csv file found in {d}")
     
-    # steel_data_adaptive = {k: v for k, v in all_data.items() if 'Steel' in k}
-    # plot_1_obj(steel_data_adaptive, "Steel Using Adaptive")
+    steel_data_adaptive = {k: v for k, v in all_data.items() if 'Steel' in k}
+    plot_1_obj(steel_data_adaptive, "Steel Adaptive")
     
     plot_1_metric(all_data, "fswm", title="FSWM")
     plot_1_metric(all_data, "sobel", title="Sobel")
