@@ -13,7 +13,8 @@ import math
 ROOT = os.path.dirname(__file__)
 PREFIX = "Steel_ehc"
 # Color scheme used:
-COLOR = ["#E69F00", "#009E73","#56B4E9","#CC79A7"]
+# COLOR = ["#1B9E77", "#D95F02","#7570B3","#CC79A7"] # og color scheme
+COLOR = ["#C7495A", "#F2B94E","#4A6C78","#E8864F"]
 LINESTYLE = ['--', ':', '-']
 
 def find_steel_ehc_dirs(root):
@@ -194,7 +195,7 @@ def plot_3_metrics(steel_data):
 
     ax.set_xlabel("X (m)", fontsize=9)
     ax.set_ylabel("Focus Value", fontsize=9)
-    ax.legend(fontsize=6)
+    ax.legend(fontsize=7, loc='upper right')
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
@@ -202,7 +203,7 @@ def plot_3_metrics(steel_data):
     ax.set_title("Focus Value Across Metrics vs Position X", fontsize=9)
     plt.tight_layout()
     plt.xlim(0,0.05)
-    plt.savefig("fv_comparison_vibrant.png")
+    plt.savefig("fv_comparison_vibrant.png", dpi=300, bbox_inches="tight")
     plt.show()
 
     # Plot Smoothed Ratio vs X for all metrics. Simple Moving Average works fine. Don't use EMA since SMA is better for noise and smoothing.
@@ -216,7 +217,7 @@ def plot_3_metrics(steel_data):
 
     ax.set_xlabel("X (m)", fontsize=9)
     ax.set_ylabel("Ratio", fontsize=9)
-    ax.legend(fontsize=6)
+    ax.legend(fontsize=7)
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
@@ -224,7 +225,7 @@ def plot_3_metrics(steel_data):
     ax.set_title("Ratio Across Metrics vs Position X", fontsize=9)
     plt.tight_layout()
     plt.xlim(0,0.05)
-    plt.savefig("ratio_comparison.png")
+    plt.savefig("ratio_comparison.png", dpi=300, bbox_inches="tight")
     plt.show()
 
 def plot_dfv_ddfv(data):
@@ -239,25 +240,25 @@ def plot_dfv_ddfv(data):
     dema = data["dema_fv"]
 
     fig, ax = plt.subplots(4, 1, figsize=(3.5, 6.5), dpi=300, sharex=True)
-    ax[0].plot(x, dema, linewidth=1, color="#56B4E9")
+    ax[0].plot(x, dema, linewidth=1, color=COLOR[2])
     ax[0].set_xlim(0,0.05)
     ax[0].set_ylabel("Focus Value", fontsize=9)
     ax[0].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[0].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_dfv = moving_average(dfv, window=5)
-    ax[1].plot(x, smoothed_dfv, linewidth=1, color="#56B4E9")
+    ax[1].plot(x, smoothed_dfv, linewidth=1, color=COLOR[2])
     ax[1].set_xlim(0,0.05)
     ax[1].set_ylabel("DFV", fontsize=9)
     ax[1].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[1].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_ddfv = moving_average(ddfv, window=5)
-    ax[2].plot(x, smoothed_ddfv, linewidth=1, color="#56B4E9")
+    ax[2].plot(x, smoothed_ddfv, linewidth=1, color=COLOR[2])
     ax[2].set_xlim(0,0.05)
     ax[2].set_ylabel("DDFV", fontsize=9)
     ax[2].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[2].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_ratio = moving_average(ratio, window=11)
-    ax[3].plot(x, smoothed_ratio, linewidth=1, color="#56B4E9")
+    ax[3].plot(x, smoothed_ratio, linewidth=1, color=COLOR[2])
     ax[3].set_xlim(0,0.05)
     ax[3].set_xlabel("X (m)", fontsize=9); ax[3].set_ylabel("Ratio", fontsize=9)
     ax[3].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[3].yaxis.set_major_locator(MaxNLocator(nbins=4))
@@ -284,13 +285,13 @@ def plot_dfv_ddfv(data):
         mode_marker_added = False
         for a in ax:
             if not mode_marker_added:
-                a.axvline(x_mark, color=COLOR[0], linestyle='--', linewidth=1, label="Fine mode starts")
+                a.axvline(x_mark, color=COLOR[1], linestyle='--', linewidth=1, label="Fine mode start")
                 mode_marker_added = True
             else:
-                a.axvline(x_mark, color=COLOR[0], linestyle='--', linewidth=1)
-    ax[0].legend(fontsize=6)
+                a.axvline(x_mark, color=COLOR[1], linestyle='--', linewidth=1)
+            ax[0].legend(fontsize=6.5, loc='upper right')
     plt.tight_layout()
-    plt.savefig("FV_dFV_ddFV.png")
+    plt.savefig("FV_dFV_ddFV.png", dpi=300, bbox_inches="tight")
     plt.show()
 
 def plot_1_obj(data, dataset_name):
@@ -322,7 +323,7 @@ def plot_1_obj(data, dataset_name):
     # ax[0].set_ylabel("Focus Value", fontsize=9)
     ax.set_ylabel("Smoothed Velocity", fontsize=9)
     ax.set_xlabel("X (m)", fontsize=9)
-    ax.legend(fontsize=6)
+    ax.legend(fontsize=7, loc='upper right')
 
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
@@ -332,7 +333,7 @@ def plot_1_obj(data, dataset_name):
     ax.set_title("Velocity vs Position X", fontsize=9)
     plt.tight_layout()
     plt.xlim(0, 0.05)
-    plt.savefig("smoothed_vel.png")
+    plt.savefig("smoothed_vel.png", dpi=300, bbox_inches="tight")
     plt.show()
 
 def compute_shifted_x(metric_data, target_x=None):
@@ -414,7 +415,7 @@ def plot_1_metric(all_data, metric_token, title=None):
         uniq_h.append(h)
         uniq_l.append(l)
     if uniq_h:
-        ax.legend(uniq_h, uniq_l, fontsize=6)
+            ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper right')
 
     ax.set_xlabel("X (m)", fontsize=9)
     ax.set_ylabel("FV", fontsize=9)
@@ -425,7 +426,7 @@ def plot_1_metric(all_data, metric_token, title=None):
     ax.set_title(f"FV vs X plot for {title or metric_token}", fontsize=9)
     plt.tight_layout()
     plt.xlim(0, 0.05)
-    plt.savefig(f"fv_{metric_token}.png")
+    plt.savefig(f"fv_{metric_token}.png", dpi=300, bbox_inches="tight")
     plt.show()
 
     # Ratio vs X
@@ -456,7 +457,7 @@ def plot_1_metric(all_data, metric_token, title=None):
         uniq_h.append(h)
         uniq_l.append(l)
     if uniq_h:
-        ax.legend(uniq_h, uniq_l, fontsize=6)
+            ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper right')
 
     ax.set_xlabel("X (m)", fontsize=9)
     ax.set_ylabel("Ratio", fontsize=9)
@@ -467,7 +468,7 @@ def plot_1_metric(all_data, metric_token, title=None):
     ax.set_title(f"Ratio vs X plot for {title or metric_token}", fontsize=9)
     plt.tight_layout()
     plt.xlim(0, 0.05)
-    plt.savefig(f"ratio_{metric_token}.png")
+    plt.savefig(f"ratio_{metric_token}.png", dpi=300, bbox_inches="tight")
     plt.show()
 
     # Velocity vs X
@@ -498,7 +499,7 @@ def plot_1_metric(all_data, metric_token, title=None):
         uniq_h.append(h)
         uniq_l.append(l)
     if uniq_h:
-        ax.legend(uniq_h, uniq_l, fontsize=6)
+            ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper right')
 
     ax.set_xlabel("X (m)", fontsize=9)
     ax.set_ylabel("V", fontsize=9)
@@ -509,7 +510,7 @@ def plot_1_metric(all_data, metric_token, title=None):
     ax.set_title(f"Velocity vs X plot for {title or metric_token}", fontsize=9)
     plt.tight_layout()
     plt.xlim(0, 0.05)
-    plt.savefig(f"vel_{metric_token}.png")
+    plt.savefig(f"vel_{metric_token}.png", dpi=300, bbox_inches="tight")
     plt.show()
  
 def read_final_time(filename):
