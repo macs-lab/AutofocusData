@@ -2,7 +2,7 @@ import os
 import csv
 import matplotlib.pyplot as plt
 import re
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import MaxNLocator, FormatStrFormatter, ScalarFormatter
 import numpy as np
 from scipy.interpolate import UnivariateSpline
 import matplotlib.pyplot as plt
@@ -194,8 +194,39 @@ def plot_3_metrics(steel_data):
         )
 
     ax.set_xlabel("X (m)", fontsize=9)
-    ax.set_ylabel("Focus Value", fontsize=9)
+    ax.set_ylabel("FV", fontsize=9)
     ax.legend(fontsize=7, loc='upper right')
+    fmt = ScalarFormatter(useMathText=True)
+    fmt.set_powerlimits((-3, 3))
+    ax.yaxis.set_major_formatter(fmt)
+    try:
+        ax.yaxis.set_offset_position('right')
+    except Exception:
+        pass
+    try:
+        # draw to ensure offset text is computed
+        fig.canvas.draw()
+    except Exception:
+        pass
+    offset_text = ax.yaxis.get_offset_text().get_text()
+    if offset_text:
+        # hide the default offset text
+        ax.yaxis.get_offset_text().set_visible(False)
+        try:
+            ticklabels = ax.yaxis.get_ticklabels()
+            fontsize = ticklabels[0].get_fontsize() if ticklabels else 8
+        except Exception:
+            fontsize = 8
+        # reduce size slightly so it doesn't dominate the plot
+        fontsize_offset = max(6, int(fontsize * 0.85))
+        try:
+            bbox = ax.get_position()
+            fx = max(0.0, bbox.x0 - 0.02)
+            fy = bbox.y1 + 0.01
+            fig.text(fx, fy, offset_text, ha='left', va='bottom', fontsize=fontsize_offset)
+        except Exception:
+            # fallback to inside-axes placement
+            ax.text(0.01, 0.98, offset_text, transform=ax.transAxes, ha='left', va='top', fontsize=fontsize_offset)
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
@@ -242,19 +273,19 @@ def plot_dfv_ddfv(data):
     fig, ax = plt.subplots(4, 1, figsize=(3.5, 6.5), dpi=300, sharex=True)
     ax[0].plot(x, dema, linewidth=1, color=COLOR[2])
     ax[0].set_xlim(0,0.05)
-    ax[0].set_ylabel("Focus Value", fontsize=9)
+    ax[0].set_ylabel("FV", fontsize=9)
     ax[0].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[0].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_dfv = moving_average(dfv, window=5)
     ax[1].plot(x, smoothed_dfv, linewidth=1, color=COLOR[2])
     ax[1].set_xlim(0,0.05)
-    ax[1].set_ylabel("DFV", fontsize=9)
+    ax[1].set_ylabel("\u2207FV", fontsize=9)
     ax[1].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[1].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_ddfv = moving_average(ddfv, window=5)
     ax[2].plot(x, smoothed_ddfv, linewidth=1, color=COLOR[2])
     ax[2].set_xlim(0,0.05)
-    ax[2].set_ylabel("DDFV", fontsize=9)
+    ax[2].set_ylabel("\u2207\u00B2FV", fontsize=9)
     ax[2].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[2].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_ratio = moving_average(ratio, window=11)
@@ -262,8 +293,8 @@ def plot_dfv_ddfv(data):
     ax[3].set_xlim(0,0.05)
     ax[3].set_xlabel("X (m)", fontsize=9); ax[3].set_ylabel("Ratio", fontsize=9)
     ax[3].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[3].yaxis.set_major_locator(MaxNLocator(nbins=4))
+    fig.suptitle(u'        FV, \u2207FV, \u2207\u00B2FV, Ratio vs Position X', fontsize=9)
 
-    fig.suptitle("            FV, DFV, DDFV, Ratio vs Position X", fontsize=9)
 
     # find first index where dfv > 0 and ddfv < 0
     mark_idx = None
@@ -321,7 +352,7 @@ def plot_1_obj(data, dataset_name):
    
 
     # ax[0].set_ylabel("Focus Value", fontsize=9)
-    ax.set_ylabel("Smoothed Velocity", fontsize=9)
+    ax.set_ylabel("Velocity", fontsize=9)
     ax.set_xlabel("X (m)", fontsize=9)
     ax.legend(fontsize=7, loc='upper right')
 
@@ -332,7 +363,7 @@ def plot_1_obj(data, dataset_name):
     # ax.set_title("Velocity vs Position X for {dataset_name}" if dataset_name else "smth", fontsize=9)
     ax.set_title("Velocity vs Position X", fontsize=9)
     plt.tight_layout()
-    plt.xlim(0, 0.05)
+    plt.xlim(0, 0.03)
     plt.savefig("smoothed_vel.png", dpi=300, bbox_inches="tight")
     plt.show()
 
@@ -415,17 +446,47 @@ def plot_1_metric(all_data, metric_token, title=None):
         uniq_h.append(h)
         uniq_l.append(l)
     if uniq_h:
-            ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper right')
+            ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper left')
 
     ax.set_xlabel("X (m)", fontsize=9)
     ax.set_ylabel("FV", fontsize=9)
+    fmt = ScalarFormatter(useMathText=True)
+    fmt.set_powerlimits((-3, 3))
+    ax.yaxis.set_major_formatter(fmt)
+    try:
+        ax.yaxis.set_offset_position('right')
+    except Exception:
+        pass
+    try:
+        # draw to ensure offset text is computed
+        fig.canvas.draw()
+    except Exception:
+        pass
+    offset_text = ax.yaxis.get_offset_text().get_text()
+    if offset_text:
+        # hide the default offset text and draw a single one outside
+        ax.yaxis.get_offset_text().set_visible(False)
+        try:
+            ticklabels = ax.yaxis.get_ticklabels()
+            fontsize = ticklabels[0].get_fontsize() if ticklabels else 8
+        except Exception:
+            fontsize = 8
+        fontsize_offset = max(6, int(fontsize * 0.85))
+        try:
+            bbox = ax.get_position()
+            fx = max(0.0, bbox.x0 - 0.02)
+            fy = bbox.y1 + 0.01
+            fig.text(fx, fy, offset_text, ha='left', va='bottom', fontsize=fontsize_offset)
+        except Exception:
+            ax.text(0.01, 0.98, offset_text, transform=ax.transAxes, ha='left', va='top', fontsize=fontsize_offset)
+
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
     ax.tick_params(axis='y', labelsize=8)
-    ax.set_title(f"FV vs X plot for {title or metric_token}", fontsize=9)
+    ax.set_title(f"FV vs X Plot for {title or metric_token}", fontsize=9)
     plt.tight_layout()
-    plt.xlim(0, 0.05)
+    plt.xlim(0, 0.03)
     plt.savefig(f"fv_{metric_token}.png", dpi=300, bbox_inches="tight")
     plt.show()
 
@@ -457,7 +518,7 @@ def plot_1_metric(all_data, metric_token, title=None):
         uniq_h.append(h)
         uniq_l.append(l)
     if uniq_h:
-            ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper right')
+            ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper left')
 
     ax.set_xlabel("X (m)", fontsize=9)
     ax.set_ylabel("Ratio", fontsize=9)
@@ -465,9 +526,9 @@ def plot_1_metric(all_data, metric_token, title=None):
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
     ax.tick_params(axis='y', labelsize=8)
-    ax.set_title(f"Ratio vs X plot for {title or metric_token}", fontsize=9)
+    ax.set_title(f"Ratio vs X Plot for {title or metric_token}", fontsize=9)
     plt.tight_layout()
-    plt.xlim(0, 0.05)
+    plt.xlim(0, 0.03)
     plt.savefig(f"ratio_{metric_token}.png", dpi=300, bbox_inches="tight")
     plt.show()
 
@@ -502,14 +563,14 @@ def plot_1_metric(all_data, metric_token, title=None):
             ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper right')
 
     ax.set_xlabel("X (m)", fontsize=9)
-    ax.set_ylabel("V", fontsize=9)
+    ax.set_ylabel("Velocity", fontsize=9)
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
     ax.tick_params(axis='y', labelsize=8)
-    ax.set_title(f"Velocity vs X plot for {title or metric_token}", fontsize=9)
+    ax.set_title(f"Velocity vs X Plot for {title or metric_token}", fontsize=9)
     plt.tight_layout()
-    plt.xlim(0, 0.05)
+    plt.xlim(0, 0.03)
     plt.savefig(f"vel_{metric_token}.png", dpi=300, bbox_inches="tight")
     plt.show()
  
