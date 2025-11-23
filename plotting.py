@@ -8,7 +8,15 @@ from scipy.interpolate import UnivariateSpline
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import math
+import matplotlib as mpl
+import shutil
 
+use_usetex = False
+if shutil.which('latex') or shutil.which('pdflatex'):
+    use_usetex = True
+mpl.rcParams['text.usetex'] = use_usetex
+if not use_usetex:
+    print('Note: LaTeX not found on PATH; using matplotlib mathtext (text.usetex=False).')
 # Plotting 3 focus metrics together, first as focus value, then as ratio
 ROOT = os.path.dirname(__file__)
 PREFIX = "Steel_ehc"
@@ -235,7 +243,7 @@ def plot_3_metrics(steel_data):
     plt.tight_layout()
     plt.xlim(0,0.05)
     plt.savefig("fv_comparison_vibrant.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    # plt.show()
 
     # Plot Smoothed Ratio vs X for all metrics. Simple Moving Average works fine. Don't use EMA since SMA is better for noise and smoothing.
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)    
@@ -257,7 +265,7 @@ def plot_3_metrics(steel_data):
     plt.tight_layout()
     plt.xlim(0,0.05)
     plt.savefig("ratio_comparison.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    # plt.show()
 
 def plot_dfv_ddfv(data):
     if not data:
@@ -297,32 +305,128 @@ def plot_dfv_ddfv(data):
 
 
     # find first index where dfv > 0 and ddfv < 0
-    mark_idx = None
-    for i, (d1, d2, xv) in enumerate(zip(smoothed_dfv, smoothed_ddfv, x)):
-        try:
-            if xv is None or math.isnan(xv): 
-                continue
-            if d1 is None or math.isnan(d1) or d2 is None or math.isnan(d2):
-                continue
-            if d1 > 0.1 and d2 < -0.1:
-                mark_idx = i
-                break
-        except Exception:
-            continue
+    # mark_idx = None
+    # for i, (d1, d2, xv) in enumerate(zip(smoothed_dfv, smoothed_ddfv, x)):
+    #     try:
+    #         if xv is None or math.isnan(xv): 
+    #             continue
+    #         if d1 is None or math.isnan(d1) or d2 is None or math.isnan(d2):
+    #             continue
+    #         if d1 > 0.1 and d2 < -0.1:
+    #             mark_idx = i
+    #             break
+    #     except Exception:
+    #         continue
 
-    if mark_idx is not None:
-        x_mark = x[mark_idx]
-        # vertical line across all subplots
-        mode_marker_added = False
-        for a in ax:
-            if not mode_marker_added:
-                a.axvline(x_mark, color=COLOR[1], linestyle='--', linewidth=1, label="Fine mode start")
-                mode_marker_added = True
-            else:
-                a.axvline(x_mark, color=COLOR[1], linestyle='--', linewidth=1)
-            ax[0].legend(fontsize=6.5, loc='upper right')
+    # if mark_idx is not None:
+    #     x_mark = x[mark_idx]
+    #     # vertical line across all subplots
+    #     mode_marker_added = False
+    #     for a in ax:
+    #         if not mode_marker_added:
+    #             a.axvline(x_mark, color=COLOR[1], linestyle='--', linewidth=1, label="Fine mode start")
+    #             mode_marker_added = True
+    #         else:
+    #             a.axvline(x_mark, color=COLOR[1], linestyle='--', linewidth=1)
+    #         ax[0].legend(fontsize=6.5, loc='upper right')
     plt.tight_layout()
     plt.savefig("FV_dFV_ddFV.png", dpi=300, bbox_inches="tight")
+    # plt.show()
+
+def read_csv_fv_triplet(filename, offset=0):
+    focus_vals, ema_vals, dema_vals = [], [], []
+    x_raw = []
+
+    def safe_val(v):
+        return 0 if v is None or (isinstance(v, float) and math.isnan(v)) else v
+
+    with open(filename, newline='', encoding='utf-8') as f:
+        r = csv.reader(f, delimiter=',')
+        for row in r:
+            # stop early if indicated
+            try:
+                if 'return to max' in row[20].lower():
+                    break
+            except Exception:
+                pass
+
+            # read columns with defensive indexing; skip rows with no focus value
+            try:
+                focus_v = safe_float(row[6].strip())
+            except Exception:
+                focus_v = None
+            if focus_v is None:
+                continue
+            try:
+                ema_v = safe_float(row[7].strip())
+            except Exception:
+                ema_v = None
+            try:
+                dema_v = safe_float(row[8].strip())
+            except Exception:
+                dema_v = None
+
+            # read x components and make a Euclidean norm like the other reader
+            try:
+                x_val = safe_float(row[12].strip())
+                y_val = safe_float(row[13].strip())
+                z_val = safe_float(row[14].strip())
+                x_safe = safe_val(x_val)
+                y_safe = safe_val(y_val)
+                z_safe = safe_val(z_val)
+                x_raw_v = math.sqrt(x_safe**2 + y_safe**2 + z_safe**2)
+            except Exception:
+                x_raw_v = float('nan')
+
+            focus_vals.append(focus_v)
+            ema_vals.append(ema_v if ema_v is not None else float('nan'))
+            dema_vals.append(dema_v if dema_v is not None else float('nan'))
+            x_raw.append(x_raw_v)
+
+    # same x shifting logic as read_csv_focus_data
+    first_x = next((v for v in x_raw if not (v is None or math.isnan(v))), None)
+    if first_x is None:
+        x_vals = [float('nan')] * len(x_raw)
+    else:
+        shifted = [ (v - first_x) if not (v is None or math.isnan(v)) else float('nan') for v in x_raw ]
+        last_valid = next((v for v in reversed(shifted) if not (v is None or math.isnan(v))), None)
+        if last_valid is not None and last_valid < 0:
+            x_vals = [(-v if not (v is None or math.isnan(v)) else float('nan')) for v in shifted]
+        else:
+            x_vals = shifted
+
+    x_vals = [ (xx - offset) if not (xx is None or math.isnan(xx)) else float('nan') for xx in x_vals ]
+
+    return x_vals, focus_vals, ema_vals, dema_vals
+
+
+def plot_fv_triplet(x_vals, focus_vals, ema_vals, dema_vals, outname="fv_triplet.png"):
+    # shift so the peak of dema_fv is at x = 0.025
+    try:
+        arr = np.array(dema_vals, dtype=float)
+        idx = int(np.nanargmax(arr))
+        peak_x = float(x_vals[idx])
+        shift = 0.025 - peak_x
+        x_plot = [(xx + shift) for xx in x_vals]
+    except Exception:
+        x_plot = x_vals
+
+    fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
+    ax.plot(x_plot, focus_vals, label=r'$FV_{o}$', color=COLOR[0], linestyle='-', linewidth=1)
+    ax.plot(x_plot, ema_vals, label=r'$\overline{FV}$', color=COLOR[1], linestyle='--', linewidth=1)
+    ax.plot(x_plot, dema_vals, label=r'$\mathrm{FV}$', color=COLOR[2], linestyle=':', linewidth=1)
+
+    ax.set_xlabel("X (m)", fontsize=9)
+    ax.set_ylabel("FV", fontsize=9)
+    ax.legend(fontsize=7, loc='upper right')
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=8))
+    ax.tick_params(axis='x', labelsize=8)
+    ax.tick_params(axis='y', labelsize=8)
+    ax.set_title("Raw and smoothed FV vs Position X", fontsize=9)
+    plt.tight_layout()
+    plt.xlim(0.02, 0.03)
+    plt.savefig(outname, dpi=300, bbox_inches='tight')
     plt.show()
 
 def plot_1_obj(data, dataset_name):
@@ -341,9 +445,57 @@ def plot_1_obj(data, dataset_name):
         # smoothed velocity
         vel = metric_data.get("velocity", [])
         smoothed_vel = moving_average(vel, window=17)
+        # Prepare plot data: keep values up to the last valid point, then
+        # add a vertical drop to 0 and extend flat at 0 until x = 0.03.
+        x_vals = list(shifted_x)
+        y_vals = list(smoothed_vel)
+
+        # find last valid index where both x and y are finite
+        last_idx = None
+        for j in range(len(x_vals) - 1, -1, -1):
+            xv = x_vals[j]
+            yv = y_vals[j]
+            try:
+                if xv is None or yv is None:
+                    continue
+                if math.isnan(xv) or math.isnan(yv):
+                    continue
+            except Exception:
+                continue
+            last_idx = j
+            break
+
+        if last_idx is None:
+            # nothing to plot
+            x_plot = x_vals
+            y_plot = y_vals
+        else:
+            # trim arrays to the last valid point (drop trailing NaNs)
+            x_plot = x_vals[: last_idx + 1]
+            y_plot = y_vals[: last_idx + 1]
+
+            last_x = x_plot[-1]
+            last_y = y_plot[-1]
+
+            # only extend if last_x is less than the axis limit we use (0.03)
+            if last_x < 0.03:
+                # if last_y is not already zero, append a point at (last_x, 0)
+                try:
+                    is_zero = (last_y == 0.0)
+                except Exception:
+                    is_zero = False
+
+                if not is_zero:
+                    x_plot.append(last_x)
+                    y_plot.append(0.0)
+
+                # append the final flat point at x=0.03 (zero velocity)
+                x_plot.append(0.03)
+                y_plot.append(0.0)
+
         ax.plot(
-            shifted_x,
-            smoothed_vel,
+            x_plot,
+            y_plot,
             label=label,
             color=COLOR[i % len(COLOR)],
             linestyle=LINESTYLE[i % len(LINESTYLE)],
@@ -365,7 +517,7 @@ def plot_1_obj(data, dataset_name):
     plt.tight_layout()
     plt.xlim(0, 0.03)
     plt.savefig("smoothed_vel.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    # plt.show()
 
 def compute_shifted_x(metric_data, target_x=None):
     x = metric_data.get("x", [])
@@ -488,7 +640,7 @@ def plot_1_metric(all_data, metric_token, title=None):
     plt.tight_layout()
     plt.xlim(0, 0.03)
     plt.savefig(f"fv_{metric_token}.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    # plt.show()
 
     # Ratio vs X
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
@@ -530,7 +682,7 @@ def plot_1_metric(all_data, metric_token, title=None):
     plt.tight_layout()
     plt.xlim(0, 0.03)
     plt.savefig(f"ratio_{metric_token}.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    # plt.show()
 
     # Velocity vs X
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
@@ -572,7 +724,7 @@ def plot_1_metric(all_data, metric_token, title=None):
     plt.tight_layout()
     plt.xlim(0, 0.03)
     plt.savefig(f"vel_{metric_token}.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    # plt.show()
  
 def read_final_time(filename):
     # Final time is the last timestamp before "return to max" focus mode
@@ -650,6 +802,18 @@ def main():
     # plot once for all metrics
     plot_3_metrics(steel_data)
     plot_dfv_ddfv(steel_data["sobel"])
+
+    # Additionally plot raw FV variants (focus_value, ema_fv, dema_fv).
+    try:
+        # use CF EHC Sobel run (assumed to exist)
+        cf_sobel_dir = next((d for d in find_alg_dirs(ROOT, 'cf') if 'ehc' in d.lower() and 'sobel' in d.lower()))
+        csv_to_use = first_csv_in_dir(cf_sobel_dir)
+        if csv_to_use:
+            x_vals, focus_vals, ema_vals, dema_vals = read_csv_fv_triplet(csv_to_use, offset=0.043)
+            plot_fv_triplet(x_vals, focus_vals, ema_vals, dema_vals, outname="fv_triplet_cf_ehc_sobel.png")
+    except Exception:
+        # deliberately not falling back to steel; surface error silently
+        pass
 
     # Time and position processing for all EHC and Adaptive runs
     ehc_dirs = find_alg_dirs(ROOT,'ehc')
