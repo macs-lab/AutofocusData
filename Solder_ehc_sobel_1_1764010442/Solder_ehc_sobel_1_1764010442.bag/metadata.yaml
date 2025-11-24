@@ -1,0 +1,26 @@
+rosbag2_bagfile_information:
+  version: 5
+  storage_identifier: sqlite3
+  duration:
+    nanoseconds: 41299594717
+  starting_time:
+    nanoseconds_since_epoch: 1764010442627755898
+  message_count: 414
+  topics_with_message_count:
+    - topic_metadata:
+        name: autofocus_data
+        type: viewpoint_generation_interfaces/msg/AutofocusData
+        serialization_format: cdr
+        offered_qos_profiles: ""
+      message_count: 414
+  compression_format: ""
+  compression_mode: ""
+  relative_file_paths:
+    - Solder_ehc_sobel_1_1764010442.bag_0.db3
+  files:
+    - path: Solder_ehc_sobel_1_1764010442.bag_0.db3
+      starting_time:
+        nanoseconds_since_epoch: 1764010442627755898
+      duration:
+        nanoseconds: 41299594717
+      message_count: 414

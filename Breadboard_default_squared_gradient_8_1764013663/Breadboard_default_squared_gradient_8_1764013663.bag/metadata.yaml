@@ -1,0 +1,26 @@
+rosbag2_bagfile_information:
+  version: 5
+  storage_identifier: sqlite3
+  duration:
+    nanoseconds: 8200163655
+  starting_time:
+    nanoseconds_since_epoch: 1764013663241178706
+  message_count: 83
+  topics_with_message_count:
+    - topic_metadata:
+        name: autofocus_data
+        type: viewpoint_generation_interfaces/msg/AutofocusData
+        serialization_format: cdr
+        offered_qos_profiles: ""
+      message_count: 83
+  compression_format: ""
+  compression_mode: ""
+  relative_file_paths:
+    - Breadboard_default_squared_gradient_8_1764013663.bag_0.db3
+  files:
+    - path: Breadboard_default_squared_gradient_8_1764013663.bag_0.db3
+      starting_time:
+        nanoseconds_since_epoch: 1764013663241178706
+      duration:
+        nanoseconds: 8200163655
+      message_count: 83

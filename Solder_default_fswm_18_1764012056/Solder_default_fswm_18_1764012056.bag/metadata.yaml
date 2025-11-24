@@ -1,0 +1,26 @@
+rosbag2_bagfile_information:
+  version: 5
+  storage_identifier: sqlite3
+  duration:
+    nanoseconds: 9500071351
+  starting_time:
+    nanoseconds_since_epoch: 1764012057040898371
+  message_count: 96
+  topics_with_message_count:
+    - topic_metadata:
+        name: autofocus_data
+        type: viewpoint_generation_interfaces/msg/AutofocusData
+        serialization_format: cdr
+        offered_qos_profiles: ""
+      message_count: 96
+  compression_format: ""
+  compression_mode: ""
+  relative_file_paths:
+    - Solder_default_fswm_18_1764012056.bag_0.db3
+  files:
+    - path: Solder_default_fswm_18_1764012056.bag_0.db3
+      starting_time:
+        nanoseconds_since_epoch: 1764012057040898371
+      duration:
+        nanoseconds: 9500071351
+      message_count: 96
