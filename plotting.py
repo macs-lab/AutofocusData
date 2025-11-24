@@ -22,8 +22,8 @@ ROOT = os.path.dirname(__file__)
 PREFIX = "Steel_ehc"
 # Color scheme used:
 # COLOR = ["#1B9E77", "#D95F02","#7570B3","#CC79A7"] # og color scheme
-COLOR = ["#C7495A", "#F2B94E","#4A6C78","#E8864F"]
-LINESTYLE = ['--', ':', '-']
+COLOR = ["#C7495A", "#F2B94E","#4A6C78","#8E8E8E"]
+LINESTYLE = ['--', ':', '-','-.']
 
 def find_steel_ehc_dirs(root):
     return [
@@ -244,6 +244,7 @@ def plot_3_metrics(steel_data):
     plt.xlim(0,0.05)
     plt.savefig("fv_comparison_vibrant.png", dpi=300, bbox_inches="tight")
     # plt.show()
+    plt.close()
 
     # Plot Smoothed Ratio vs X for all metrics. Simple Moving Average works fine. Don't use EMA since SMA is better for noise and smoothing.
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)    
@@ -266,6 +267,7 @@ def plot_3_metrics(steel_data):
     plt.xlim(0,0.05)
     plt.savefig("ratio_comparison.png", dpi=300, bbox_inches="tight")
     # plt.show()
+    plt.close()
 
 def plot_dfv_ddfv(data):
     if not data:
@@ -303,35 +305,10 @@ def plot_dfv_ddfv(data):
     ax[3].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[3].yaxis.set_major_locator(MaxNLocator(nbins=4))
     fig.suptitle(u'        FV, \u2207FV, \u2207\u00B2FV, Ratio vs Position X', fontsize=9)
 
-
-    # find first index where dfv > 0 and ddfv < 0
-    # mark_idx = None
-    # for i, (d1, d2, xv) in enumerate(zip(smoothed_dfv, smoothed_ddfv, x)):
-    #     try:
-    #         if xv is None or math.isnan(xv): 
-    #             continue
-    #         if d1 is None or math.isnan(d1) or d2 is None or math.isnan(d2):
-    #             continue
-    #         if d1 > 0.1 and d2 < -0.1:
-    #             mark_idx = i
-    #             break
-    #     except Exception:
-    #         continue
-
-    # if mark_idx is not None:
-    #     x_mark = x[mark_idx]
-    #     # vertical line across all subplots
-    #     mode_marker_added = False
-    #     for a in ax:
-    #         if not mode_marker_added:
-    #             a.axvline(x_mark, color=COLOR[1], linestyle='--', linewidth=1, label="Fine mode start")
-    #             mode_marker_added = True
-    #         else:
-    #             a.axvline(x_mark, color=COLOR[1], linestyle='--', linewidth=1)
-    #         ax[0].legend(fontsize=6.5, loc='upper right')
     plt.tight_layout()
     plt.savefig("FV_dFV_ddFV.png", dpi=300, bbox_inches="tight")
     # plt.show()
+    plt.close()
 
 def read_csv_fv_triplet(filename, offset=0):
     focus_vals, ema_vals, dema_vals = [], [], []
@@ -427,7 +404,8 @@ def plot_fv_triplet(x_vals, focus_vals, ema_vals, dema_vals, outname="fv_triplet
     plt.tight_layout()
     plt.xlim(0.02, 0.03)
     plt.savefig(outname, dpi=300, bbox_inches='tight')
-    plt.show()
+    # plt.show()
+    plt.close()
 
 def plot_1_obj(data, dataset_name):
     if not data:
@@ -518,6 +496,7 @@ def plot_1_obj(data, dataset_name):
     plt.xlim(0, 0.03)
     plt.savefig("smoothed_vel.png", dpi=300, bbox_inches="tight")
     # plt.show()
+    plt.close()
 
 def compute_shifted_x(metric_data, target_x=None):
     x = metric_data.get("x", [])
@@ -585,7 +564,17 @@ def plot_1_metric(all_data, metric_token, title=None):
             linewidth=1,
         )
 
-        
+    # draw vertical line at first 'fine' mode from primary run
+    x_mark = None
+    primary = next(iter(selected.values()))
+    modes = primary['mode']
+    shifted_primary_x = compute_shifted_x(primary, target_x=target_x)
+    for idx, m in enumerate(modes):
+        if m and 'fine' in m.lower():
+            if idx < len(shifted_primary_x):
+                x_mark = shifted_primary_x[idx]
+                ax.axvline(x_mark, color=COLOR[3], linestyle=LINESTYLE[3], linewidth=1, label='Fine start')
+            break
 
     # dedupe legend just in case
     handles, labels = ax.get_legend_handles_labels()
@@ -640,7 +629,7 @@ def plot_1_metric(all_data, metric_token, title=None):
     plt.tight_layout()
     plt.xlim(0, 0.03)
     plt.savefig(f"fv_{metric_token}.png", dpi=300, bbox_inches="tight")
-    # plt.show()
+    plt.show()
 
     # Ratio vs X
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
@@ -657,6 +646,7 @@ def plot_1_metric(all_data, metric_token, title=None):
             linestyle=LINESTYLE[i % len(LINESTYLE)],
             linewidth=1,
         )
+    ax.axvline(x_mark, color=COLOR[3], linestyle=LINESTYLE[3], linewidth=1, label='Fine start')
 
         
 
@@ -682,7 +672,7 @@ def plot_1_metric(all_data, metric_token, title=None):
     plt.tight_layout()
     plt.xlim(0, 0.03)
     plt.savefig(f"ratio_{metric_token}.png", dpi=300, bbox_inches="tight")
-    # plt.show()
+    plt.show()
 
     # Velocity vs X
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
@@ -691,14 +681,58 @@ def plot_1_metric(all_data, metric_token, title=None):
         target_x = 0.025
         shifted_x = compute_shifted_x(metric_data, target_x=target_x)
 
+        # prepare x/y lists and trim trailing NaNs, then extend velocity to zero
+        x_vals = list(shifted_x)
+        y_vals = list(vel)
+
+        # find last valid index where both x and y are finite
+        last_idx = None
+        for j in range(len(x_vals) - 1, -1, -1):
+            xv = x_vals[j]
+            yv = y_vals[j]
+            try:
+                if xv is None or yv is None:
+                    continue
+                if math.isnan(xv) or math.isnan(yv):
+                    continue
+            except Exception:
+                continue
+            last_idx = j
+            break
+
+        if last_idx is None:
+            x_plot = x_vals
+            y_plot = y_vals
+        else:
+            x_plot = x_vals[: last_idx + 1]
+            y_plot = y_vals[: last_idx + 1]
+
+            last_x = x_plot[-1]
+            last_y = y_plot[-1]
+
+            # if the last x is before the axis limit, append a drop to zero and flat to 0.03
+            if last_x < 0.03:
+                try:
+                    is_zero = (last_y == 0.0)
+                except Exception:
+                    is_zero = False
+
+                if not is_zero:
+                    x_plot.append(last_x)
+                    y_plot.append(0.0)
+
+                x_plot.append(0.03)
+                y_plot.append(0.0)
+
         ax.plot(
-            shifted_x,
-            vel,
+            x_plot,
+            y_plot,
             label=mat_label,
             color=COLOR[i % len(COLOR)],
             linestyle=LINESTYLE[i % len(LINESTYLE)],
             linewidth=1,
         )
+    ax.axvline(x_mark, color=COLOR[3], linestyle=LINESTYLE[3], linewidth=1, label='Fine start')
 
         
 
@@ -712,7 +746,7 @@ def plot_1_metric(all_data, metric_token, title=None):
         uniq_h.append(h)
         uniq_l.append(l)
     if uniq_h:
-            ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper right')
+            ax.legend(uniq_h, uniq_l, fontsize=7, loc='lower left')
 
     ax.set_xlabel("X (m)", fontsize=9)
     ax.set_ylabel("Velocity", fontsize=9)
@@ -724,7 +758,7 @@ def plot_1_metric(all_data, metric_token, title=None):
     plt.tight_layout()
     plt.xlim(0, 0.03)
     plt.savefig(f"vel_{metric_token}.png", dpi=300, bbox_inches="tight")
-    # plt.show()
+    plt.show()
  
 def read_final_time(filename):
     # Final time is the last timestamp before "return to max" focus mode
