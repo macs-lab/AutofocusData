@@ -22,7 +22,7 @@ ROOT = os.path.dirname(__file__)
 PREFIX = "Steel_ehc"
 # Color scheme used:
 # COLOR = ["#1B9E77", "#D95F02","#7570B3","#CC79A7"] # og color scheme
-COLOR = ["#C7495A", "#F2B94E","#4A6C78","#8E8E8E"]
+COLOR = ["#C7495A", "#8DA55F","#4A6C78","#8E8E8E"]
 LINESTYLE = ['--', ':', '-','-.']
 
 def find_steel_ehc_dirs(root):
@@ -201,8 +201,8 @@ def plot_3_metrics(steel_data):
             linewidth=1
         )
 
-    ax.set_xlabel("X (m)", fontsize=9)
-    ax.set_ylabel("FV", fontsize=9)
+    ax.set_xlabel("$X$ (m)", fontsize=9)
+    ax.set_ylabel("$FV$", fontsize=9)
     ax.legend(fontsize=7, loc='upper right')
     fmt = ScalarFormatter(useMathText=True)
     fmt.set_powerlimits((-3, 3))
@@ -239,7 +239,7 @@ def plot_3_metrics(steel_data):
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
     ax.tick_params(axis='y', labelsize=8)
-    ax.set_title("Focus Value Across Metrics vs Position X", fontsize=9)
+    ax.set_title("$FV$ Across Metrics vs Position X", fontsize=9)
     plt.tight_layout()
     plt.xlim(0,0.05)
     plt.savefig("fv_comparison_vibrant.png", dpi=300, bbox_inches="tight")
@@ -255,8 +255,8 @@ def plot_3_metrics(steel_data):
         smoothed = moving_average(ratio_vals, window=11)
         ax.plot(x_vals, smoothed, linewidth=1, label=f"{metric_name}", color=COLOR[i], linestyle=LINESTYLE[i])
 
-    ax.set_xlabel("X (m)", fontsize=9)
-    ax.set_ylabel("Ratio", fontsize=9)
+    ax.set_xlabel("$X$ (m)", fontsize=9)
+    ax.set_ylabel("$Ratio$", fontsize=9)
     ax.legend(fontsize=7)
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
@@ -283,27 +283,27 @@ def plot_dfv_ddfv(data):
     fig, ax = plt.subplots(4, 1, figsize=(3.5, 6.5), dpi=300, sharex=True)
     ax[0].plot(x, dema, linewidth=1, color=COLOR[2])
     ax[0].set_xlim(0,0.05)
-    ax[0].set_ylabel("FV", fontsize=9)
+    ax[0].set_ylabel("$FV$", fontsize=9)
     ax[0].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[0].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_dfv = moving_average(dfv, window=5)
     ax[1].plot(x, smoothed_dfv, linewidth=1, color=COLOR[2])
     ax[1].set_xlim(0,0.05)
-    ax[1].set_ylabel("\u2207FV", fontsize=9)
+    ax[1].set_ylabel("\u2207$FV$", fontsize=9)
     ax[1].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[1].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_ddfv = moving_average(ddfv, window=5)
     ax[2].plot(x, smoothed_ddfv, linewidth=1, color=COLOR[2])
     ax[2].set_xlim(0,0.05)
-    ax[2].set_ylabel("\u2207\u00B2FV", fontsize=9)
+    ax[2].set_ylabel("\u2207\u00B2$FV$", fontsize=9)
     ax[2].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[2].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_ratio = moving_average(ratio, window=11)
     ax[3].plot(x, smoothed_ratio, linewidth=1, color=COLOR[2])
     ax[3].set_xlim(0,0.05)
-    ax[3].set_xlabel("X (m)", fontsize=9); ax[3].set_ylabel("Ratio", fontsize=9)
+    ax[3].set_xlabel("$X$ (m)", fontsize=9); ax[3].set_ylabel("$Ratio$", fontsize=9)
     ax[3].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[3].yaxis.set_major_locator(MaxNLocator(nbins=4))
-    fig.suptitle(u'        FV, \u2207FV, \u2207\u00B2FV, Ratio vs Position X', fontsize=9)
+    fig.suptitle(u'        $FV$, \u2207$FV$, \u2207\u00B2$FV$, $Ratio$ vs Position X', fontsize=9)
 
     plt.tight_layout()
     plt.savefig("FV_dFV_ddFV.png", dpi=300, bbox_inches="tight")
@@ -389,12 +389,12 @@ def plot_fv_triplet(x_vals, focus_vals, ema_vals, dema_vals, outname="fv_triplet
         x_plot = x_vals
 
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
-    ax.plot(x_plot, focus_vals, label=r'$FV_{o}$', color=COLOR[0], linestyle='-', linewidth=1)
+    ax.plot(x_plot, dema_vals, label=r'$\mathrm{FV}$', color=COLOR[0], linestyle='-', linewidth=1)
     ax.plot(x_plot, ema_vals, label=r'$\overline{FV}$', color=COLOR[1], linestyle='--', linewidth=1)
-    ax.plot(x_plot, dema_vals, label=r'$\mathrm{FV}$', color=COLOR[2], linestyle=':', linewidth=1)
+    ax.plot(x_plot, focus_vals, label=r'$FV_{o}$', color=COLOR[2], linestyle=':', linewidth=1)
 
-    ax.set_xlabel("X (m)", fontsize=9)
-    ax.set_ylabel("FV", fontsize=9)
+    ax.set_xlabel("$X$ (m)", fontsize=9)
+    ax.set_ylabel("$FV$", fontsize=9)
     ax.legend(fontsize=7, loc='upper right')
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=8))
@@ -482,8 +482,8 @@ def plot_1_obj(data, dataset_name):
    
 
     # ax[0].set_ylabel("Focus Value", fontsize=9)
-    ax.set_ylabel("Velocity", fontsize=9)
-    ax.set_xlabel("X (m)", fontsize=9)
+    ax.set_ylabel("$Velocity$", fontsize=9)
+    ax.set_xlabel("$X$ (m)", fontsize=9)
     ax.legend(fontsize=7, loc='upper right')
 
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
@@ -589,8 +589,8 @@ def plot_1_metric(all_data, metric_token, title=None):
     if uniq_h:
             ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper left')
 
-    ax.set_xlabel("X (m)", fontsize=9)
-    ax.set_ylabel("FV", fontsize=9)
+    ax.set_xlabel("$X$ (m)", fontsize=9)
+    ax.set_ylabel("$FV$", fontsize=9)
     fmt = ScalarFormatter(useMathText=True)
     fmt.set_powerlimits((-3, 3))
     ax.yaxis.set_major_formatter(fmt)
@@ -662,8 +662,8 @@ def plot_1_metric(all_data, metric_token, title=None):
     if uniq_h:
             ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper left')
 
-    ax.set_xlabel("X (m)", fontsize=9)
-    ax.set_ylabel("Ratio", fontsize=9)
+    ax.set_xlabel("$X$ (m)", fontsize=9)
+    ax.set_ylabel("$Ratio$", fontsize=9)
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
@@ -748,8 +748,8 @@ def plot_1_metric(all_data, metric_token, title=None):
     if uniq_h:
             ax.legend(uniq_h, uniq_l, fontsize=7, loc='lower left')
 
-    ax.set_xlabel("X (m)", fontsize=9)
-    ax.set_ylabel("Velocity", fontsize=9)
+    ax.set_xlabel("$X$ (m)", fontsize=9)
+    ax.set_ylabel("$Velocity$", fontsize=9)
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
