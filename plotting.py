@@ -898,7 +898,7 @@ def main():
             write_to_csv('Time_Taken.csv', os.path.basename(d), time_taken)
 
             # Max X focus computatoin
-            time, dema_fv, dfv, ddfv, ratio, velocity, x, modes, stop_flag = read_csv_focus_data(csv_path, offset=0.043)
+            time, dema_fv, dfv, ddfv, ratio, velocity, x, modes, stop_flag = read_csv_focus_data(csv_path, offset=0)
             if dema_fv:
                 all_data[os.path.basename(d)] = {
                     "time": time,
