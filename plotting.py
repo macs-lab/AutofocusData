@@ -81,14 +81,51 @@ def read_csv_focus_data(filename, offset=0, max_fv=0.5e6):
             # be mixed with position and produced negative normalized times.
             t_raw = safe_float(row[0].strip())
 
-            # Read x, y, z for Euclidean norm
+            # Read world-frame position (columns M-O -> row[12..14])
             x_val = safe_float(row[12].strip())
             y_val = safe_float(row[13].strip())
             z_val = safe_float(row[14].strip())
-            x_safe = safe_val(x_val)
-            y_safe = safe_val(y_val)
-            z_safe = safe_val(z_val)
-            x_raw_v = math.sqrt(x_safe**2 + y_safe**2 + z_safe**2)
+
+            # Read quaternion (columns P-S -> row[15..18]), assumed order qx,qy,qz,qw
+            qx = safe_float(row[15].strip())
+            qy = safe_float(row[16].strip())
+            qz = safe_float(row[17].strip())
+            qw = safe_float(row[18].strip())
+
+            # Normalize quaternion and rotate position into robot body frame.
+            # Then compute body-frame XY magnitude (recommended for drift handling).
+            try:
+                qnorm = math.hypot(qx, qy, qz, qw)
+                if qnorm == 0:
+                    # fallback to horizontal magnitude in world frame if quaternion invalid
+                    x_raw_v = math.hypot(x_val, y_val)
+                else:
+                    qx_u, qy_u, qz_u, qw_u = qx / qnorm, qy / qnorm, qz / qnorm, qw / qnorm
+
+                    # quaternion multiply for (x,y,z,w) tuples
+                    def quat_mult(a, b):
+                        ax, ay, az, aw = a
+                        bx, by, bz, bw = b
+                        return (
+                            aw*bx + ax*bw + ay*bz - az*by,
+                            aw*by - ax*bz + ay*bw + az*bx,
+                            aw*bz + ax*by - ay*bx + az*bw,
+                            aw*bw - ax*bx - ay*by - az*bz,
+                        )
+
+                    # rotate vector r by q: r_body = q * (r,0) * q_conj
+                    vq = (x_val, y_val, z_val, 0.0)
+                    q = (qx_u, qy_u, qz_u, qw_u)
+                    q_conj = (-qx_u, -qy_u, -qz_u, qw_u)
+
+                    tmp = quat_mult(q, vq)
+                    rx, ry, rz, _ = quat_mult(tmp, q_conj)
+
+                    # body-frame XY magnitude (recommended choice)
+                    x_raw_v = math.hypot(rx, ry)
+            except Exception:
+                # on unexpected error, fall back to horizontal magnitude
+                x_raw_v = math.hypot(x_val, y_val)
 
             dema.append(fv)
             dfv.append(dfv_v if dfv_v is not None else float('nan'))
@@ -629,7 +666,8 @@ def plot_1_metric(all_data, metric_token, title=None):
     plt.tight_layout()
     plt.xlim(0, 0.03)
     plt.savefig(f"fv_{metric_token}.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    # plt.show()
+    plt.close()
 
     # Ratio vs X
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
@@ -672,7 +710,8 @@ def plot_1_metric(all_data, metric_token, title=None):
     plt.tight_layout()
     plt.xlim(0, 0.03)
     plt.savefig(f"ratio_{metric_token}.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    # plt.show()
+    plt.close()
 
     # Velocity vs X
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
@@ -758,7 +797,8 @@ def plot_1_metric(all_data, metric_token, title=None):
     plt.tight_layout()
     plt.xlim(0, 0.03)
     plt.savefig(f"vel_{metric_token}.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    # plt.show()
+    plt.close()
  
 def read_final_time(filename):
     # Final time is the last timestamp before "return to max" focus mode
