@@ -72,21 +72,19 @@ def read_csv_focus_data(filename, offset=0, max_fv=0.5e6):
                 continue
             fv = abs(fv)
 
+            # Convert to float with safe handling
             dfv_v = safe_float(row[9].strip())
             ddfv_v = safe_float(row[10].strip())
             ratio_v = safe_float(row[11].strip())
             velocity_v = safe_float(row[19].strip())
-            # Timestamp is in the first column (TIME_COL = 0). Previously this used
-            # column 12 which is actually the X coordinate; that caused time to
-            # be mixed with position and produced negative normalized times.
             t_raw = safe_float(row[0].strip())
 
-            # Read world-frame position (columns M-O -> row[12..14])
+            # Read world-frame position
             x_val = safe_float(row[12].strip())
             y_val = safe_float(row[13].strip())
             z_val = safe_float(row[14].strip())
 
-            # Read quaternion (columns P-S -> row[15..18]), assumed order qx,qy,qz,qw
+            # Read quaternion
             qx = safe_float(row[15].strip())
             qy = safe_float(row[16].strip())
             qz = safe_float(row[17].strip())
@@ -94,39 +92,37 @@ def read_csv_focus_data(filename, offset=0, max_fv=0.5e6):
 
             # Normalize quaternion and rotate position into robot body frame.
             # Then compute body-frame XY magnitude (recommended for drift handling).
-            try:
-                qnorm = math.hypot(qx, qy, qz, qw)
-                if qnorm == 0:
-                    # fallback to horizontal magnitude in world frame if quaternion invalid
-                    x_raw_v = math.hypot(x_val, y_val)
-                else:
-                    qx_u, qy_u, qz_u, qw_u = qx / qnorm, qy / qnorm, qz / qnorm, qw / qnorm
-
-                    # quaternion multiply for (x,y,z,w) tuples
-                    def quat_mult(a, b):
-                        ax, ay, az, aw = a
-                        bx, by, bz, bw = b
-                        return (
-                            aw*bx + ax*bw + ay*bz - az*by,
-                            aw*by - ax*bz + ay*bw + az*bx,
-                            aw*bz + ax*by - ay*bx + az*bw,
-                            aw*bw - ax*bx - ay*by - az*bz,
-                        )
-
-                    # rotate vector r by q: r_body = q * (r,0) * q_conj
-                    vq = (x_val, y_val, z_val, 0.0)
-                    q = (qx_u, qy_u, qz_u, qw_u)
-                    q_conj = (-qx_u, -qy_u, -qz_u, qw_u)
-
-                    tmp = quat_mult(q, vq)
-                    rx, ry, rz, _ = quat_mult(tmp, q_conj)
-
-                    # body-frame XY magnitude (recommended choice)
-                    x_raw_v = math.hypot(rx, ry)
-            except Exception:
-                # on unexpected error, fall back to horizontal magnitude
+            qnorm = math.hypot(qx, qy, qz, qw)
+            if qnorm == 0:
+                # quaternion invalid: fallback to horizontal magnitude in world frame
                 x_raw_v = math.hypot(x_val, y_val)
+            else:
+                qx_u, qy_u, qz_u, qw_u = qx / qnorm, qy / qnorm, qz / qnorm, qw / qnorm
 
+                # quaternion multiply for (x,y,z,w) tuples
+                def quat_mult(a, b):
+                    ax, ay, az, aw = a
+                    bx, by, bz, bw = b
+                    return (
+                        aw*bx + ax*bw + ay*bz - az*by,
+                        aw*by - ax*bz + ay*bw + az*bx,
+                        aw*bz + ax*by - ay*bx + az*bw,
+                        aw*bw - ax*bx - ay*by - az*bz,
+                    )
+
+                # rotate vector r by q: project world position to XY plane
+                # (drop Z) then rotate into body frame: r_body = q * (r_xy,0) * q_conj
+                vq = (x_val, y_val, 0.0, 0.0)
+                q = (qx_u, qy_u, qz_u, qw_u)
+                q_conj = (-qx_u, -qy_u, -qz_u, qw_u)
+
+                tmp = quat_mult(q, vq)
+
+                # rx is projection onto body-frame forward axis
+                rx, ry, rz, _ = quat_mult(tmp, q_conj)
+                x_raw_v = rx
+
+            # Append to csv
             dema.append(fv)
             dfv.append(dfv_v if dfv_v is not None else float('nan'))
             ddfv.append(ddfv_v if ddfv_v is not None else float('nan'))
@@ -134,7 +130,6 @@ def read_csv_focus_data(filename, offset=0, max_fv=0.5e6):
             velocity.append(velocity_v if velocity_v is not None else float('nan'))
             times_raw.append(t_raw if t_raw is not None else float('nan'))
             x_raw.append(x_raw_v if x_raw_v is not None else float('nan'))
-            # read the 2nd-to-last column (mode/state) if present
             try:
                 mode_val = row[-2].strip()
             except Exception:
