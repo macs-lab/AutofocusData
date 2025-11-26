@@ -15,8 +15,8 @@ use_usetex = False
 if shutil.which('latex') or shutil.which('pdflatex'):
     use_usetex = True
 mpl.rcParams['text.usetex'] = use_usetex
-if not use_usetex:
-    print('Note: LaTeX not found on PATH; using matplotlib mathtext (text.usetex=False).')
+# if not use_usetex:
+#     print('Note: LaTeX not found on PATH; using matplotlib mathtext (text.usetex=False).')
 # Plotting 3 focus metrics together, first as focus value, then as ratio
 ROOT = os.path.dirname(__file__)
 PREFIX = "Steel_ehc"
@@ -275,7 +275,7 @@ def plot_3_metrics(steel_data):
             # fallback to inside-axes placement
             ax.text(0.01, 0.98, offset_text, transform=ax.transAxes, ha='left', va='top', fontsize=fontsize_offset)
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
-    ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=8))
     ax.tick_params(axis='x', labelsize=8)
     ax.tick_params(axis='y', labelsize=8)
     ax.set_title("$FV$ Across Metrics vs Position $X$", fontsize=9)
@@ -320,36 +320,98 @@ def plot_dfv_ddfv(data):
     ddfv = data["ddfv"]
     ratio = data["ratio"]
     dema = data["dema_fv"]
+    # Switch to horizontal 1x4 layout (preserve same signals and labels)
+    fig, ax = plt.subplots(1, 4, figsize=(10, 2.8), dpi=300, sharex=True)
 
-    fig, ax = plt.subplots(4, 1, figsize=(3.5, 6.5), dpi=300, sharex=True)
+    # Use scientific formatter consistent with fv_comparison_vibrant
+    fmt = ScalarFormatter(useMathText=True)
+    fmt.set_powerlimits((-3, 3))
+
+    xlim = (0.02, 0.03)
+    x_nbins = 3
+    y_nbins = 4
+
+    # FV
     ax[0].plot(x, dema, linewidth=1, color=COLOR[2])
-    ax[0].set_xlim(0.02,0.03)
+    ax[0].set_xlim(*xlim)
     ax[0].set_ylabel("$FV$", fontsize=9)
-    ax[0].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[0].yaxis.set_major_locator(MaxNLocator(nbins=4))
+    ax[0].set_xlabel("$X$ (m)", fontsize=9)
+    ax[0].xaxis.set_major_locator(MaxNLocator(nbins=x_nbins))
+    ax[0].yaxis.set_major_locator(MaxNLocator(nbins=y_nbins))
+    ax[0].yaxis.set_major_formatter(fmt)
 
+    # dFV
     smoothed_dfv = moving_average(dfv, window=5)
     ax[1].plot(x, smoothed_dfv, linewidth=1, color=COLOR[2])
-    ax[1].set_xlim(0.02,0.03)
+    ax[1].set_xlim(*xlim)
     ax[1].set_ylabel("\u2207$FV$", fontsize=9)
-    ax[1].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[1].yaxis.set_major_locator(MaxNLocator(nbins=4))
+    ax[1].set_xlabel("$X$ (m)", fontsize=9)
+    ax[1].xaxis.set_major_locator(MaxNLocator(nbins=x_nbins))
+    ax[1].yaxis.set_major_locator(MaxNLocator(nbins=y_nbins))
+    ax[1].yaxis.set_major_formatter(fmt)
 
+    # ddfv
     smoothed_ddfv = moving_average(ddfv, window=5)
     ax[2].plot(x, smoothed_ddfv, linewidth=1, color=COLOR[2])
-    ax[2].set_xlim(0.02,0.03)
+    ax[2].set_xlim(*xlim)
     ax[2].set_ylabel("\u2207\u00B2$FV$", fontsize=9)
-    ax[2].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[2].yaxis.set_major_locator(MaxNLocator(nbins=4))
+    ax[2].set_xlabel("$X$ (m)", fontsize=9)
+    ax[2].xaxis.set_major_locator(MaxNLocator(nbins=x_nbins))
+    ax[2].yaxis.set_major_locator(MaxNLocator(nbins=y_nbins))
+    ax[2].yaxis.set_major_formatter(fmt)
 
+    # Ratio
     smoothed_ratio = moving_average(ratio, window=11)
     ax[3].plot(x, smoothed_ratio, linewidth=1, color=COLOR[2])
-    ax[3].set_xlim(0.02,0.03)
+    ax[3].set_xlim(*xlim)
     ax[3].set_xlabel("$X$ (m)", fontsize=9); ax[3].set_ylabel("$Ratio$", fontsize=9)
-    ax[3].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[3].yaxis.set_major_locator(MaxNLocator(nbins=4))
-    # ensure consistent tick label sizes for all subplots
+    ax[3].xaxis.set_major_locator(MaxNLocator(nbins=x_nbins))
+    ax[3].yaxis.set_major_locator(MaxNLocator(nbins=y_nbins))
+    ax[3].yaxis.set_major_formatter(fmt)
+
+    # For each axis, draw to compute offset text and place it above the axis
+    for a in ax:
+        try:
+            a.yaxis.set_offset_position('right')
+        except Exception:
+            pass
+    try:
+        fig.canvas.draw()
+    except Exception:
+        pass
+
+    for a in ax:
+        try:
+            off = a.yaxis.get_offset_text().get_text()
+            if off:
+                a.yaxis.get_offset_text().set_visible(False)
+                try:
+                    fs = a.yaxis.get_ticklabels()[0].get_fontsize()
+                except Exception:
+                    fs = 8
+                fo = max(6, int(fs * 0.85))
+                try:
+                    bb = a.get_position()
+                    side = 'left'
+                    try:
+                        side = a.yaxis.get_offset_position()
+                    except Exception:
+                        pass
+                    fx = bb.x1 if side == 'right' else bb.x0
+                    fy = bb.y1 + 0.005
+                    fig.text(fx, fy, off, ha='center', va='bottom', fontsize=fo)
+                except Exception:
+                    a.text(0.01, 0.98, off, transform=a.transAxes, ha='left', va='top', fontsize=fo)
+        except Exception:
+            pass
+
+    # ticks
     for a in ax:
         a.tick_params(axis='x', labelsize=8)
         a.tick_params(axis='y', labelsize=8)
-    fig.suptitle('          $FV$, \u2207$FV$, \u2207\u00B2$FV$, $Ratio$ vs Position $X$', fontsize=9, y=0.94)
-    # Reserve slightly more space at the top for the suptitle, then save
+
+    # suptitle centered and reduced gap
+    fig.suptitle('$FV$, \u2207$FV$, \u2207\u00B2$FV$, $Ratio$ vs Position $X$', fontsize=9, y=0.96)
     plt.tight_layout(rect=[0, 0, 1, 0.97])
     plt.savefig("FV_dFV_ddFV.png", dpi=300, bbox_inches="tight")
     plt.close()
@@ -626,8 +688,9 @@ def plot_1_metric(all_data, metric_token, title=None):
         print(f"No runs found for metric '{metric_token}'.")
         return
     
-    # FV vs X (create 3 stacked subplots: FV, Ratio, Velocity)
-    fig, ax = plt.subplots(3, 1, figsize=(3.5, 7.1), dpi=300, sharex=True)
+    # FV vs X (create 1x3 horizontal subplots: FV, Ratio, Velocity)
+    fig, ax = plt.subplots(1, 3, figsize=(10.5, 2.8), dpi=300, sharex=True)
+    # ensure ax is indexable in the same way as before
     
     for i, (mat_label, metric_data) in enumerate(selected.items()):
         fv = metric_data.get("dema_fv", [])
@@ -669,7 +732,12 @@ def plot_1_metric(all_data, metric_token, title=None):
         ax[0].legend(uniq_h, uniq_l, fontsize=7, loc='upper left')
 
     # ax[0].set_xlabel("$X$ (m)", fontsize=9)
+
+    x_nbins = 3
+    y_nbins = 4
+
     ax[0].set_ylabel("$FV$", fontsize=9)
+    ax[0].set_xlabel("$X$ (m)", fontsize=9)
 
     # Disable scientific notation / offset for the results FV axis so the
     # Y-axis labels appear as plain numbers in `results_{metric}.png`.
@@ -679,8 +747,8 @@ def plot_1_metric(all_data, metric_token, title=None):
     except Exception:
         pass
 
-    ax[0].xaxis.set_major_locator(MaxNLocator(nbins=6))
-    ax[0].yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax[0].xaxis.set_major_locator(MaxNLocator(nbins=x_nbins))
+    ax[0].yaxis.set_major_locator(MaxNLocator(nbins=y_nbins))
     ax[0].tick_params(axis='x', labelsize=8)
     ax[0].tick_params(axis='y', labelsize=8)
 
@@ -702,8 +770,9 @@ def plot_1_metric(all_data, metric_token, title=None):
 
     # ax[1].set_xlabel("$X$ (m)", fontsize=9)
     ax[1].set_ylabel("$Ratio$", fontsize=9)
-    ax[1].xaxis.set_major_locator(MaxNLocator(nbins=6))
-    ax[1].yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax[1].set_xlabel("$X$ (m)", fontsize=9)
+    ax[1].xaxis.set_major_locator(MaxNLocator(nbins=x_nbins))
+    ax[1].yaxis.set_major_locator(MaxNLocator(nbins=y_nbins))
     ax[1].tick_params(axis='x', labelsize=8)
     ax[1].tick_params(axis='y', labelsize=8)
 
@@ -769,14 +838,14 @@ def plot_1_metric(all_data, metric_token, title=None):
 
     ax[2].set_xlabel("$X$ (m)", fontsize=9)
     ax[2].set_ylabel("$Velocity$", fontsize=9)
-    ax[2].xaxis.set_major_locator(MaxNLocator(nbins=6))
-    ax[2].yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax[2].xaxis.set_major_locator(MaxNLocator(nbins=x_nbins))
+    ax[2].yaxis.set_major_locator(MaxNLocator(nbins=y_nbins))
     ax[2].tick_params(axis='x', labelsize=8)
     ax[2].tick_params(axis='y', labelsize=8)
     # ax[2].set_title(f"Velocity vs X Plot for {title or metric_token}", fontsize=9)
     # Put the suptitle before tightening layout and reserve top space
-    fig.suptitle(f'            $FV$, $Ratio$, $Velocity$ vs Position $X$ for {title or metric_token}', fontsize=9, y=0.94)
-    plt.tight_layout(rect=[0, 0, 1, 0.97]) # leave top 3% for suptitle
+    fig.suptitle(f'$FV$, $Ratio$, $Velocity$ vs Position $X$ for {title or metric_token}', fontsize=9, y=0.96)
+    plt.tight_layout(rect=[0, 0, 1, 0.95]) # leave top space for suptitle
     plt.xlim(0.02, 0.03)
     plt.savefig(f"results_{metric_token}.png", dpi=300, bbox_inches="tight")
     plt.close()
