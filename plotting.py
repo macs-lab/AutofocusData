@@ -224,8 +224,10 @@ def plot_3_metrics(steel_data):
     # Plot Focus Value vs X for all metrics
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)    
     for i, (metric_name, metric_data) in enumerate(steel_data.items()):
+        # shift each metric so its FV peak maps to x=0.025 (consistent with other plots)
+        x_plot = compute_shifted_x(metric_data, target_x=0.025)
         ax.plot(
-            metric_data["x"],
+            x_plot,
             metric_data["dema_fv"],
             label=metric_name,
             color=COLOR[i],
@@ -261,9 +263,14 @@ def plot_3_metrics(steel_data):
         fontsize_offset = max(6, int(fontsize * 0.85))
         try:
             bbox = ax.get_position()
-            fx = max(0.0, bbox.x0 - 0.02)
+            # place the offset directly above the y-axis (left or right)
+            try:
+                side = ax.yaxis.get_offset_position()
+            except Exception:
+                side = 'left'
+            fx = bbox.x1 if side == 'right' else bbox.x0
             fy = bbox.y1 + 0.01
-            fig.text(fx, fy, offset_text, ha='left', va='bottom', fontsize=fontsize_offset)
+            fig.text(fx, fy, offset_text, ha='center', va='bottom', fontsize=fontsize_offset)
         except Exception:
             # fallback to inside-axes placement
             ax.text(0.01, 0.98, offset_text, transform=ax.transAxes, ha='left', va='top', fontsize=fontsize_offset)
@@ -271,17 +278,18 @@ def plot_3_metrics(steel_data):
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
     ax.tick_params(axis='y', labelsize=8)
-    ax.set_title("$FV$ Across Metrics vs Position X", fontsize=9)
+    ax.set_title("$FV$ Across Metrics vs Position $X$", fontsize=9)
+    # focus the view around the aligned peak (match fv_triplet range)
+    ax.set_xlim(0.02, 0.03)
     plt.tight_layout()
-    plt.xlim(0,0.05)
     plt.savefig("fv_comparison_vibrant.png", dpi=300, bbox_inches="tight")
-    # plt.show()
-    plt.close()
+    plt.show()
+    # plt.close()
 
     # Plot Smoothed Ratio vs X for all metrics. Simple Moving Average works fine. Don't use EMA since SMA is better for noise and smoothing.
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)    
     for i, (metric_name, metric_data) in enumerate(steel_data.items()):
-        x_vals = metric_data["x"]
+        x_vals = compute_shifted_x(metric_data, target_x=0.025)
         ratio_vals = metric_data["ratio"]
         # compute and plot moving average
         smoothed = moving_average(ratio_vals, window=11)
@@ -294,9 +302,10 @@ def plot_3_metrics(steel_data):
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
     ax.tick_params(axis='y', labelsize=8)
-    ax.set_title("Ratio Across Metrics vs Position X", fontsize=9)
+    ax.set_title("$Ratio$ Across Metrics vs Position $X$", fontsize=9)
+    # focus the view around the aligned peak (match fv_triplet range)
+    ax.set_xlim(0.02, 0.03)
     plt.tight_layout()
-    plt.xlim(0,0.05)
     plt.savefig("ratio_comparison.png", dpi=300, bbox_inches="tight")
     # plt.show()
     plt.close()
@@ -306,7 +315,7 @@ def plot_dfv_ddfv(data):
         print("No data to plot.")
         return
 
-    x = data["x"]
+    x = compute_shifted_x(data, target_x=0.025)
     dfv = data["dfv"]
     ddfv = data["ddfv"]
     ratio = data["ratio"]
@@ -314,32 +323,35 @@ def plot_dfv_ddfv(data):
 
     fig, ax = plt.subplots(4, 1, figsize=(3.5, 6.5), dpi=300, sharex=True)
     ax[0].plot(x, dema, linewidth=1, color=COLOR[2])
-    ax[0].set_xlim(0,0.05)
+    ax[0].set_xlim(0.02,0.03)
     ax[0].set_ylabel("$FV$", fontsize=9)
     ax[0].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[0].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_dfv = moving_average(dfv, window=5)
     ax[1].plot(x, smoothed_dfv, linewidth=1, color=COLOR[2])
-    ax[1].set_xlim(0,0.05)
+    ax[1].set_xlim(0.02,0.03)
     ax[1].set_ylabel("\u2207$FV$", fontsize=9)
     ax[1].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[1].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_ddfv = moving_average(ddfv, window=5)
     ax[2].plot(x, smoothed_ddfv, linewidth=1, color=COLOR[2])
-    ax[2].set_xlim(0,0.05)
+    ax[2].set_xlim(0.02,0.03)
     ax[2].set_ylabel("\u2207\u00B2$FV$", fontsize=9)
     ax[2].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[2].yaxis.set_major_locator(MaxNLocator(nbins=4))
 
     smoothed_ratio = moving_average(ratio, window=11)
     ax[3].plot(x, smoothed_ratio, linewidth=1, color=COLOR[2])
-    ax[3].set_xlim(0,0.05)
+    ax[3].set_xlim(0.02,0.03)
     ax[3].set_xlabel("$X$ (m)", fontsize=9); ax[3].set_ylabel("$Ratio$", fontsize=9)
     ax[3].xaxis.set_major_locator(MaxNLocator(nbins=6)); ax[3].yaxis.set_major_locator(MaxNLocator(nbins=4))
-    fig.suptitle(u'        $FV$, \u2207$FV$, \u2207\u00B2$FV$, $Ratio$ vs Position X', fontsize=9)
-
-    plt.tight_layout()
+    # ensure consistent tick label sizes for all subplots
+    for a in ax:
+        a.tick_params(axis='x', labelsize=8)
+        a.tick_params(axis='y', labelsize=8)
+    fig.suptitle('          $FV$, \u2207$FV$, \u2207\u00B2$FV$, $Ratio$ vs Position $X$', fontsize=9, y=0.94)
+    # Reserve slightly more space at the top for the suptitle, then save
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
     plt.savefig("FV_dFV_ddFV.png", dpi=300, bbox_inches="tight")
-    # plt.show()
     plt.close()
 
 def read_csv_fv_triplet(filename, offset=0):
@@ -428,12 +440,47 @@ def plot_fv_triplet(x_vals, focus_vals, ema_vals, dema_vals, outname="fv_triplet
     ax.set_xlabel("$X$ (m)", fontsize=9)
     ax.set_ylabel("$FV$", fontsize=9)
     ax.legend(fontsize=7, loc='upper right')
+    # Use scientific formatter for Y axis (match style in plot_3_metrics)
+    fmt = ScalarFormatter(useMathText=True)
+    fmt.set_powerlimits((-3, 3))
+    ax.yaxis.set_major_formatter(fmt)
+    try:
+        ax.yaxis.set_offset_position('right')
+    except Exception:
+        pass
+    try:
+        # draw to ensure offset text is computed
+        fig.canvas.draw()
+    except Exception:
+        pass
+    offset_text = ax.yaxis.get_offset_text().get_text()
+    if offset_text:
+        ax.yaxis.get_offset_text().set_visible(False)
+        try:
+            ticklabels = ax.yaxis.get_ticklabels()
+            fontsize = ticklabels[0].get_fontsize() if ticklabels else 8
+        except Exception:
+            fontsize = 8
+        fontsize_offset = max(6, int(fontsize * 0.85))
+        try:
+            bbox = ax.get_position()
+            # place the offset directly above the y-axis (left or right)
+            try:
+                side = ax.yaxis.get_offset_position()
+            except Exception:
+                side = 'left'
+            fx = bbox.x1 if side == 'right' else bbox.x0
+            fy = bbox.y1 + 0.01
+            fig.text(fx, fy, offset_text, ha='center', va='bottom', fontsize=fontsize_offset)
+        except Exception:
+            ax.text(0.01, 0.98, offset_text, transform=ax.transAxes, ha='left', va='top', fontsize=fontsize_offset)
+
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=8))
     ax.tick_params(axis='x', labelsize=8)
     ax.tick_params(axis='y', labelsize=8)
-    ax.set_title("Raw and smoothed FV vs Position X", fontsize=9)
-    plt.tight_layout()
+    ax.set_title("Raw and smoothed $FV$ vs Position $X$", fontsize=9)
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
     plt.xlim(0.02, 0.03)
     plt.savefig(outname, dpi=300, bbox_inches='tight')
     # plt.show()
@@ -522,10 +569,10 @@ def plot_1_obj(data, dataset_name):
     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
     ax.tick_params(axis='x', labelsize=8)
     ax.tick_params(axis='y', labelsize=8)
-    # ax.set_title("Velocity vs Position X for {dataset_name}" if dataset_name else "smth", fontsize=9)
-    ax.set_title("Velocity vs Position X", fontsize=9)
+    # ax.set_title("Velocity vs Position $X$ for {dataset_name}" if dataset_name else "smth", fontsize=9)
+    ax.set_title("$Velocity$ vs Position $X$", fontsize=9)
     plt.tight_layout()
-    plt.xlim(0, 0.03)
+    plt.xlim(0.02, 0.03)
     plt.savefig("smoothed_vel.png", dpi=300, bbox_inches="tight")
     # plt.show()
     plt.close()
@@ -579,15 +626,15 @@ def plot_1_metric(all_data, metric_token, title=None):
         print(f"No runs found for metric '{metric_token}'.")
         return
     
-    # FV vs X
-    fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
+    # FV vs X (create 3 stacked subplots: FV, Ratio, Velocity)
+    fig, ax = plt.subplots(3, 1, figsize=(3.5, 7.1), dpi=300, sharex=True)
     
     for i, (mat_label, metric_data) in enumerate(selected.items()):
         fv = metric_data.get("dema_fv", [])
         target_x = 0.025
         shifted_x = compute_shifted_x(metric_data, target_x=target_x)
 
-        ax.plot(
+        ax[0].plot(
             shifted_x,
             fv,
             label=mat_label,
@@ -596,20 +643,20 @@ def plot_1_metric(all_data, metric_token, title=None):
             linewidth=1,
         )
 
-    # draw vertical line at first 'fine' mode from primary run
-    x_mark = None
-    primary = next(iter(selected.values()))
-    modes = primary['mode']
-    shifted_primary_x = compute_shifted_x(primary, target_x=target_x)
-    for idx, m in enumerate(modes):
-        if m and 'fine' in m.lower():
-            if idx < len(shifted_primary_x):
-                x_mark = shifted_primary_x[idx]
-                ax.axvline(x_mark, color=COLOR[3], linestyle=LINESTYLE[3], linewidth=1, label='Fine start')
-            break
+    # # draw vertical line at first 'fine' mode from primary run
+    # x_mark = None
+    # primary = next(iter(selected.values()))
+    # modes = primary['mode']
+    # shifted_primary_x = compute_shifted_x(primary, target_x=target_x)
+    # for idx, m in enumerate(modes):
+    #     if m and 'fine' in m.lower():
+    #         if idx < len(shifted_primary_x):
+    #             x_mark = shifted_primary_x[idx]
+    #             ax[0].axvline(x_mark, color=COLOR[3], linestyle=LINESTYLE[3], linewidth=1, label='Fine start')
+    #         break
 
     # dedupe legend just in case
-    handles, labels = ax.get_legend_handles_labels()
+    handles, labels = ax[0].get_legend_handles_labels()
     seen = set()
     uniq_h, uniq_l = [], []
     for h, l in zip(handles, labels):
@@ -619,59 +666,31 @@ def plot_1_metric(all_data, metric_token, title=None):
         uniq_h.append(h)
         uniq_l.append(l)
     if uniq_h:
-            ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper left')
+        ax[0].legend(uniq_h, uniq_l, fontsize=7, loc='upper left')
 
-    ax.set_xlabel("$X$ (m)", fontsize=9)
-    ax.set_ylabel("$FV$", fontsize=9)
-    fmt = ScalarFormatter(useMathText=True)
-    fmt.set_powerlimits((-3, 3))
-    ax.yaxis.set_major_formatter(fmt)
+    # ax[0].set_xlabel("$X$ (m)", fontsize=9)
+    ax[0].set_ylabel("$FV$", fontsize=9)
+
+    # Disable scientific notation / offset for the results FV axis so the
+    # Y-axis labels appear as plain numbers in `results_{metric}.png`.
     try:
-        ax.yaxis.set_offset_position('right')
+        ax[0].ticklabel_format(style='plain', axis='y', useOffset=False)
+        ax[0].yaxis.get_offset_text().set_visible(False)
     except Exception:
         pass
-    try:
-        # draw to ensure offset text is computed
-        fig.canvas.draw()
-    except Exception:
-        pass
-    offset_text = ax.yaxis.get_offset_text().get_text()
-    if offset_text:
-        # hide the default offset text and draw a single one outside
-        ax.yaxis.get_offset_text().set_visible(False)
-        try:
-            ticklabels = ax.yaxis.get_ticklabels()
-            fontsize = ticklabels[0].get_fontsize() if ticklabels else 8
-        except Exception:
-            fontsize = 8
-        fontsize_offset = max(6, int(fontsize * 0.85))
-        try:
-            bbox = ax.get_position()
-            fx = max(0.0, bbox.x0 - 0.02)
-            fy = bbox.y1 + 0.01
-            fig.text(fx, fy, offset_text, ha='left', va='bottom', fontsize=fontsize_offset)
-        except Exception:
-            ax.text(0.01, 0.98, offset_text, transform=ax.transAxes, ha='left', va='top', fontsize=fontsize_offset)
 
-    ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
-    ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
-    ax.tick_params(axis='x', labelsize=8)
-    ax.tick_params(axis='y', labelsize=8)
-    ax.set_title(f"FV vs X Plot for {title or metric_token}", fontsize=9)
-    plt.tight_layout()
-    plt.xlim(0, 0.03)
-    plt.savefig(f"fv_{metric_token}.png", dpi=300, bbox_inches="tight")
-    # plt.show()
-    plt.close()
+    ax[0].xaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax[0].yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax[0].tick_params(axis='x', labelsize=8)
+    ax[0].tick_params(axis='y', labelsize=8)
 
     # Ratio vs X
-    fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
     for i, (mat_label, metric_data) in enumerate(selected.items()):
         ratio = metric_data.get("ratio", [])
         target_x = 0.025
         shifted_x = compute_shifted_x(metric_data, target_x=target_x)
 
-        ax.plot(
+        ax[1].plot(
             shifted_x,
             ratio,
             label=mat_label,
@@ -679,37 +698,17 @@ def plot_1_metric(all_data, metric_token, title=None):
             linestyle=LINESTYLE[i % len(LINESTYLE)],
             linewidth=1,
         )
-    ax.axvline(x_mark, color=COLOR[3], linestyle=LINESTYLE[3], linewidth=1, label='Fine start')
+    # ax[1].axvline(x_mark, color=COLOR[3], linestyle=LINESTYLE[3], linewidth=1, label='Fine start')
 
-        
-
-    handles, labels = ax.get_legend_handles_labels()
-    seen = set()
-    uniq_h, uniq_l = [], []
-    for h, l in zip(handles, labels):
-        if l in seen:
-            continue
-        seen.add(l)
-        uniq_h.append(h)
-        uniq_l.append(l)
-    if uniq_h:
-            ax.legend(uniq_h, uniq_l, fontsize=7, loc='upper left')
-
-    ax.set_xlabel("$X$ (m)", fontsize=9)
-    ax.set_ylabel("$Ratio$", fontsize=9)
-    ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
-    ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
-    ax.tick_params(axis='x', labelsize=8)
-    ax.tick_params(axis='y', labelsize=8)
-    ax.set_title(f"Ratio vs X Plot for {title or metric_token}", fontsize=9)
-    plt.tight_layout()
-    plt.xlim(0, 0.03)
-    plt.savefig(f"ratio_{metric_token}.png", dpi=300, bbox_inches="tight")
-    # plt.show()
-    plt.close()
+    # ax[1].set_xlabel("$X$ (m)", fontsize=9)
+    ax[1].set_ylabel("$Ratio$", fontsize=9)
+    ax[1].xaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax[1].yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax[1].tick_params(axis='x', labelsize=8)
+    ax[1].tick_params(axis='y', labelsize=8)
 
     # Velocity vs X
-    fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
+    # fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)
     for i, (mat_label, metric_data) in enumerate(selected.items()):
         vel = metric_data.get("velocity", [])
         target_x = 0.025
@@ -758,7 +757,7 @@ def plot_1_metric(all_data, metric_token, title=None):
                 x_plot.append(0.03)
                 y_plot.append(0.0)
 
-        ax.plot(
+        ax[2].plot(
             x_plot,
             y_plot,
             label=mat_label,
@@ -766,33 +765,20 @@ def plot_1_metric(all_data, metric_token, title=None):
             linestyle=LINESTYLE[i % len(LINESTYLE)],
             linewidth=1,
         )
-    ax.axvline(x_mark, color=COLOR[3], linestyle=LINESTYLE[3], linewidth=1, label='Fine start')
+    # ax[2].axvline(x_mark, color=COLOR[3], linestyle=LINESTYLE[3], linewidth=1, label='Fine start')
 
-        
-
-    handles, labels = ax.get_legend_handles_labels()
-    seen = set()
-    uniq_h, uniq_l = [], []
-    for h, l in zip(handles, labels):
-        if l in seen:
-            continue
-        seen.add(l)
-        uniq_h.append(h)
-        uniq_l.append(l)
-    if uniq_h:
-            ax.legend(uniq_h, uniq_l, fontsize=7, loc='lower left')
-
-    ax.set_xlabel("$X$ (m)", fontsize=9)
-    ax.set_ylabel("$Velocity$", fontsize=9)
-    ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
-    ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
-    ax.tick_params(axis='x', labelsize=8)
-    ax.tick_params(axis='y', labelsize=8)
-    ax.set_title(f"Velocity vs X Plot for {title or metric_token}", fontsize=9)
-    plt.tight_layout()
-    plt.xlim(0, 0.03)
-    plt.savefig(f"vel_{metric_token}.png", dpi=300, bbox_inches="tight")
-    # plt.show()
+    ax[2].set_xlabel("$X$ (m)", fontsize=9)
+    ax[2].set_ylabel("$Velocity$", fontsize=9)
+    ax[2].xaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax[2].yaxis.set_major_locator(MaxNLocator(nbins=10))
+    ax[2].tick_params(axis='x', labelsize=8)
+    ax[2].tick_params(axis='y', labelsize=8)
+    # ax[2].set_title(f"Velocity vs X Plot for {title or metric_token}", fontsize=9)
+    # Put the suptitle before tightening layout and reserve top space
+    fig.suptitle(f'            $FV$, $Ratio$, $Velocity$ vs Position $X$ for {title or metric_token}', fontsize=9, y=0.94)
+    plt.tight_layout(rect=[0, 0, 1, 0.97]) # leave top 3% for suptitle
+    plt.xlim(0.02, 0.03)
+    plt.savefig(f"results_{metric_token}.png", dpi=300, bbox_inches="tight")
     plt.close()
  
 def read_final_time(filename):
@@ -875,11 +861,11 @@ def main():
     # Additionally plot raw FV variants (focus_value, ema_fv, dema_fv).
     try:
         # use CF EHC Sobel run (assumed to exist)
-        cf_sobel_dir = next((d for d in find_alg_dirs(ROOT, 'cf') if 'ehc' in d.lower() and 'sobel' in d.lower()))
-        csv_to_use = first_csv_in_dir(cf_sobel_dir)
+        steel_fswm_dir = next((d for d in find_alg_dirs(ROOT, 'steel') if 'ehc' in d.lower() and 'fswm' in d.lower()))
+        csv_to_use = first_csv_in_dir(steel_fswm_dir)
         if csv_to_use:
             x_vals, focus_vals, ema_vals, dema_vals = read_csv_fv_triplet(csv_to_use, offset=0.043)
-            plot_fv_triplet(x_vals, focus_vals, ema_vals, dema_vals, outname="fv_triplet_cf_ehc_sobel.png")
+            plot_fv_triplet(x_vals, focus_vals, ema_vals, dema_vals, outname="fv_triplet.png")
     except Exception:
         # deliberately not falling back to steel; surface error silently
         pass
