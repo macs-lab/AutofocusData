@@ -286,6 +286,73 @@ def plot_3_metrics(steel_data):
     plt.show()
     # plt.close()
 
+    # Also save a log-scale version of the same FV comparison
+    try:
+        fig_log, ax_log = plt.subplots(figsize=(3.5, 2.8), dpi=300)
+        for i, (metric_name, metric_data) in enumerate(steel_data.items()):
+            x_plot = compute_shifted_x(metric_data, target_x=0.025)
+            ax_log.plot(
+                x_plot,
+                metric_data["dema_fv"],
+                label=metric_name,
+                color=COLOR[i],
+                linestyle=LINESTYLE[i],
+                linewidth=1,
+            )
+
+        ax_log.set_xlabel("$X$ (m)", fontsize=9)
+        ax_log.set_ylabel("$FV$", fontsize=9)
+        ax_log.legend(fontsize=7, loc='upper right')
+
+        # set Y to log scale
+        try:
+            ax_log.set_yscale('log')
+        except Exception:
+            pass
+
+        # Format Y tick labels as math-text powers of ten (e.g., $10^{5}$)
+        try:
+            from matplotlib.ticker import LogFormatterMathtext
+            ax_log.yaxis.set_major_formatter(LogFormatterMathtext())
+        except Exception:
+            pass
+        try:
+            fig_log.canvas.draw()
+        except Exception:
+            pass
+        offset_text = ax_log.yaxis.get_offset_text().get_text()
+        if offset_text:
+            ax_log.yaxis.get_offset_text().set_visible(False)
+            try:
+                ticklabels = ax_log.yaxis.get_ticklabels()
+                fontsize = ticklabels[0].get_fontsize() if ticklabels else 8
+            except Exception:
+                fontsize = 8
+            fontsize_offset = max(6, int(fontsize * 0.85))
+            try:
+                bbox = ax_log.get_position()
+                try:
+                    side = ax_log.yaxis.get_offset_position()
+                except Exception:
+                    side = 'left'
+                fx = bbox.x1 if side == 'right' else bbox.x0
+                fy = bbox.y1 + 0.01
+                fig_log.text(fx, fy, offset_text, ha='center', va='bottom', fontsize=fontsize_offset)
+            except Exception:
+                ax_log.text(0.01, 0.98, offset_text, transform=ax_log.transAxes, ha='left', va='top', fontsize=fontsize_offset)
+
+        ax_log.xaxis.set_major_locator(MaxNLocator(nbins=6))
+        # Let matplotlib choose y tick locations automatically for the log plot
+        ax_log.tick_params(axis='x', labelsize=8)
+        ax_log.tick_params(axis='y', labelsize=8)
+        ax_log.set_title("$FV$ Across Metrics vs Position $X$ (log scale)", fontsize=9)
+        ax_log.set_xlim(0.01, 0.04)
+        plt.tight_layout()
+        plt.savefig("fv_comparison_log.png", dpi=300, bbox_inches="tight")
+        plt.close(fig_log)
+    except Exception:
+        pass
+
     # Plot Smoothed Ratio vs X for all metrics. Simple Moving Average works fine. Don't use EMA since SMA is better for noise and smoothing.
     fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=300)    
     for i, (metric_name, metric_data) in enumerate(steel_data.items()):
@@ -304,7 +371,7 @@ def plot_3_metrics(steel_data):
     ax.tick_params(axis='y', labelsize=8)
     ax.set_title("$Ratio$ Across Metrics vs Position $X$", fontsize=9)
     # focus the view around the aligned peak (match fv_triplet range)
-    ax.set_xlim(0.02, 0.03)
+    ax.set_xlim(0.01, 0.04)
     plt.tight_layout()
     plt.savefig("ratio_comparison.png", dpi=300, bbox_inches="tight")
     # plt.show()
@@ -565,7 +632,7 @@ def plot_1_obj(data, dataset_name):
         vel = metric_data.get("velocity", [])
         smoothed_vel = moving_average(vel, window=17)
         # Prepare plot data: keep values up to the last valid point, then
-        # add a vertical drop to 0 and extend flat at 0 until x = 0.03.
+        # add a vertical drop to 0 and extend flat at 0 until x = 0.05.
         x_vals = list(shifted_x)
         y_vals = list(smoothed_vel)
 
@@ -596,8 +663,8 @@ def plot_1_obj(data, dataset_name):
             last_x = x_plot[-1]
             last_y = y_plot[-1]
 
-            # only extend if last_x is less than the axis limit we use (0.03)
-            if last_x < 0.03:
+            # only extend if last_x is less than the axis limit we use (0.05)
+            if last_x < 0.05:
                 # if last_y is not already zero, append a point at (last_x, 0)
                 try:
                     is_zero = (last_y == 0.0)
@@ -608,8 +675,8 @@ def plot_1_obj(data, dataset_name):
                     x_plot.append(last_x)
                     y_plot.append(0.0)
 
-                # append the final flat point at x=0.03 (zero velocity)
-                x_plot.append(0.03)
+                # append the final flat point at x=0.05 (zero velocity)
+                x_plot.append(0.05)
                 y_plot.append(0.0)
 
         ax.plot(
@@ -634,7 +701,7 @@ def plot_1_obj(data, dataset_name):
     # ax.set_title("Velocity vs Position $X$ for {dataset_name}" if dataset_name else "smth", fontsize=9)
     ax.set_title("$Velocity$ vs Position $X$", fontsize=9)
     plt.tight_layout()
-    plt.xlim(0.02, 0.03)
+    plt.xlim(0.01, 0.03)
     plt.savefig("smoothed_vel.png", dpi=300, bbox_inches="tight")
     # plt.show()
     plt.close()
@@ -733,7 +800,7 @@ def plot_1_metric(all_data, metric_token, title=None):
 
     # ax[0].set_xlabel("$X$ (m)", fontsize=9)
 
-    x_nbins = 3
+    x_nbins = 4
     y_nbins = 4
 
     ax[0].set_ylabel("$FV$", fontsize=9)
@@ -846,7 +913,18 @@ def plot_1_metric(all_data, metric_token, title=None):
     # Put the suptitle before tightening layout and reserve top space
     fig.suptitle(f'$FV$, $Ratio$, $Velocity$ vs Position $X$ for {title or metric_token}', fontsize=9, y=0.96)
     plt.tight_layout(rect=[0, 0, 1, 0.95]) # leave top space for suptitle
-    plt.xlim(0.02, 0.03)
+    plt.xlim(0.02, 0.026)
+    # Hardcode x tick marks for this results figure only
+    xticks = [0.02, 0.022, 0.024, 0.026]
+    try:
+        for a in ax:
+            a.set_xticks(xticks)
+    except Exception:
+        # fallback in case ax is not iterable (shouldn't happen here)
+        try:
+            ax.set_xticks(xticks)
+        except Exception:
+            pass
     plt.savefig(f"results_{metric_token}.png", dpi=300, bbox_inches="tight")
     plt.close()
  
