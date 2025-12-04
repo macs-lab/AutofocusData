@@ -15,6 +15,15 @@ use_usetex = False
 if shutil.which('latex') or shutil.which('pdflatex'):
     use_usetex = True
 mpl.rcParams['text.usetex'] = use_usetex
+# Use Times New Roman (serif) for all plot text where available
+try:
+    # Prefer DejaVu Serif (bundled with matplotlib) since it contains the nabla glyph,
+    # fall back to Times if available.
+    mpl.rcParams['font.family'] = 'serif'
+    mpl.rcParams['font.serif'] = ['DejaVu Serif', 'Times New Roman', 'Times']
+    mpl.rcParams['mathtext.fontset'] = 'stix'
+except Exception:
+    pass
 # if not use_usetex:
 #     print('Note: LaTeX not found on PATH; using matplotlib mathtext (text.usetex=False).')
 # Plotting 3 focus metrics together, first as focus value, then as ratio
@@ -301,7 +310,7 @@ def plot_3_metrics(steel_data):
             )
 
         ax_log.set_xlabel("$X$ (m)", fontsize=9)
-        ax_log.set_ylabel("$FV$", fontsize=9)
+        ax_log.set_ylabel("$FV$ (log)", fontsize=9)
         ax_log.legend(fontsize=7, loc='upper right')
 
         # set Y to log scale
@@ -345,7 +354,7 @@ def plot_3_metrics(steel_data):
         # Let matplotlib choose y tick locations automatically for the log plot
         ax_log.tick_params(axis='x', labelsize=8)
         ax_log.tick_params(axis='y', labelsize=8)
-        ax_log.set_title("$FV$ Across Metrics vs Position $X$ (log scale)", fontsize=9)
+        ax_log.set_title("$FV$ Across Metrics vs Position $X$", fontsize=9)
         ax_log.set_xlim(0.01, 0.04)
         plt.tight_layout()
         plt.savefig("fv_comparison_log.png", dpi=300, bbox_inches="tight")
@@ -411,7 +420,8 @@ def plot_dfv_ddfv(data):
     smoothed_dfv = moving_average(dfv, window=5)
     ax[1].plot(x, smoothed_dfv, linewidth=1, color=COLOR[2])
     ax[1].set_xlim(*xlim)
-    ax[1].set_ylabel("\u2207$FV$", fontsize=9)
+    # Use Unicode nabla character so the glyph is rendered directly by the font
+    ax[1].set_ylabel("\u2207 FV", fontsize=9)
     ax[1].set_xlabel("$X$ (m)", fontsize=9)
     ax[1].xaxis.set_major_locator(MaxNLocator(nbins=x_nbins))
     ax[1].yaxis.set_major_locator(MaxNLocator(nbins=y_nbins))
@@ -421,7 +431,8 @@ def plot_dfv_ddfv(data):
     smoothed_ddfv = moving_average(ddfv, window=5)
     ax[2].plot(x, smoothed_ddfv, linewidth=1, color=COLOR[2])
     ax[2].set_xlim(*xlim)
-    ax[2].set_ylabel("\u2207\u00B2$FV$", fontsize=9)
+    # Nabla-squared using Unicode superscript 2
+    ax[2].set_ylabel("\u2207\u00B2 FV", fontsize=9)
     ax[2].set_xlabel("$X$ (m)", fontsize=9)
     ax[2].xaxis.set_major_locator(MaxNLocator(nbins=x_nbins))
     ax[2].yaxis.set_major_locator(MaxNLocator(nbins=y_nbins))
@@ -478,7 +489,8 @@ def plot_dfv_ddfv(data):
         a.tick_params(axis='y', labelsize=8)
 
     # suptitle centered and reduced gap
-    fig.suptitle('$FV$, \u2207$FV$, \u2207\u00B2$FV$, $Ratio$ vs Position $X$', fontsize=9, y=0.96)
+    # Suptitle: use Unicode nabla glyphs to avoid mathtext parsing issues
+    fig.suptitle('$FV$, \u2207 FV, \u2207\u00B2 FV, $Ratio$ vs Position $X$', fontsize=9, y=0.96)
     plt.tight_layout(rect=[0, 0, 1, 0.97])
     plt.savefig("FV_dFV_ddFV.png", dpi=300, bbox_inches="tight")
     plt.close()
